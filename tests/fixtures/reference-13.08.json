@@ -1,0 +1,19 @@
+{
+  "provenance": "Expected values from direct inspection of the second private replay export on 2026-10-18. The user confirmed Iris is Miks, Miks kills Clove with Ghost, and reported the rest of the round-one report seems accurate. The user subsequently confirmed the selected R2 surviving fight, R9 nonlethal contribution and R14 trade sequences. Exact timestamps/delays are export measurements, not independently verified millisecond precision; other match content remains unverified.",
+  "selected_subject": "380875cd-9d67-5e65-a6b4-c11422aae222",
+  "selected_state": 58,
+  "selected_pawn": 1270,
+  "rounds": 24,
+  "total_death_events": 185,
+  "selected_opponent_kills": 30,
+  "selected_death_events": 17,
+  "round_one_live_ms": 45053,
+  "round_one_prepare_ms": 20226,
+  "round_one_dash_equip_ms": 21667,
+  "self_attributed_post_round_death_ms": 1862455,
+  "user_confirmed_agent": {"internal": "Iris", "display": "Miks", "pawn": 770},
+  "round_one_miks_kill": {"victim": 866, "weapon": "Ghost", "round_time_ms": 14649},
+  "confirmed_surviving_fight": {"round": 2, "teammate": 1168, "opponent": 968, "start_ms": 39309, "end_ms": 40379, "dealt": 90.0, "taken": 70.0, "weapon": "Classic"},
+  "confirmed_nonlethal_contribution": {"round": 9, "teammate": 1168, "opponent": 866, "selected_damage": [50.0, 50.0], "selected_weapon": "Blade Storm", "finishing_damage": 25.0, "finishing_weapon": "Vandal"},
+  "confirmed_trade": {"round": 14, "victim": 770, "opponent": 1476, "responder": 1270, "delay_ms": 203, "response_weapon": "Bulldog"}
+}

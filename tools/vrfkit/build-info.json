@@ -1,0 +1,6 @@
+{
+  "commit": "b9496df61c40fa304d4f539689c1dd627804946e",
+  "executable_sha256": "1a211eebbaf0a794201baefa2b32162d74c93fec38a8db3a793c0d93429ba0ca",
+  "tag": "v0.3.0",
+  "target": "x86_64-pc-windows-msvc"
+}

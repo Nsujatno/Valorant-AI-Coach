@@ -1,0 +1,23 @@
+{
+  "provenance": "Expected values from the earlier exploratory review and direct export inspection; independent playback checks remain pending.",
+  "selected_subject": "380875cd-9d67-5e65-a6b4-c11422aae222",
+  "selected_pawn": 864,
+  "rounds": 22,
+  "player_kills": 33,
+  "player_deaths": 16,
+  "total_deaths": 179,
+  "round_one": {
+    "live_ms": 45063,
+    "deaths": [[57237,1062,1164],[64550,962,1566],[67125,864,1366],[68029,1062,658],[69322,962,1260],[70868,864,1466],[72246,1062,864]],
+    "preparations_ms": [4854,26480],
+    "cloudburst_ms": 7374,
+    "dash_equip_ms": 8017,
+    "damage_dealt_actual": 278.0,
+    "damage_dealt_raw": 307.3996,
+    "damage_taken_actual": 100.0,
+    "clove_pickup_ms": 28721
+  },
+  "completed_trade": {"round": 2,"victim": 1164,"opponent": 1366,"responder": 658,"delay_ms": 557},
+  "surviving_fight": {"round": 3,"teammate": 1164,"opponent": 1466,"start_ms": 2262},
+  "nonlethal_contribution": {"round": 20,"teammate": 1164,"opponent": 1466,"start_ms": 85957,"actual_damage": 69.1092}
+}
