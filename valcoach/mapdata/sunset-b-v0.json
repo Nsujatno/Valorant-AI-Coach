@@ -1,0 +1,301 @@
+{
+  "schema_version": 1,
+  "id": "sunset-b-minimap-v0",
+  "name": "Sunset B area — candidate minimap model",
+  "map_asset": "/Game/Maps/Juliett/Juliett",
+  "coordinate_space": "world_cm_xy",
+  "validated_builds": [],
+  "candidate_builds": [
+    "++Ares-Core+release-13.08"
+  ],
+  "projection": {
+    "xMultiplier": 7.8e-05,
+    "yMultiplier": -7.8e-05,
+    "xScalarToAdd": 0.5,
+    "yScalarToAdd": 0.515625
+  },
+  "height_policy": "2D footprints only; floors, eyes and cover heights unvalidated",
+  "grid_resolution_cm": 50,
+  "actor_radius_cm": 35,
+  "edge_uncertainty_cm": 30,
+  "provenance": {
+    "metadata_url": "https://valorant-api.com/v1/maps",
+    "metadata_snapshot_sha256": "b277a098e2e4cc0ce9f85147885d8c12764c7db1bc2ffe4e59e38ea760d03fa4",
+    "image_url": "https://media.valorant-api.com/maps/92584fbe-486a-b1b2-9faa-39b0f486b498/displayicon.png",
+    "image_sha256": "1188642e2f94f4fbb17d6c61feb9071d349dec21c9749349db710afbc1bbb228",
+    "image_size": [
+      1024,
+      1024
+    ],
+    "retrieved_date": "2026-10-18",
+    "annotation_method": "Manual visual trace, checked against source pixel boundaries; not collision geometry.",
+    "coordinate_calibration": "Public API projection applied; independent landmark, replay-build and height checks pending.",
+    "validation_status": "pending independent replay/scene verification; opt-in candidate calculations only"
+  },
+  "coverage_polygon_cm": [
+    [
+      2391.3261,
+      -5821.8149
+    ],
+    [
+      2391.3261,
+      -3380.4087
+    ],
+    [
+      -600.9615,
+      -3380.4087
+    ],
+    [
+      -600.9615,
+      -5821.8149
+    ]
+  ],
+  "walking_polygon_cm": [
+    [
+      2216.0457,
+      -5821.8149
+    ],
+    [
+      2216.0457,
+      -3893.73
+    ],
+    [
+      2378.8061,
+      -3893.73
+    ],
+    [
+      2378.8061,
+      -3405.4487
+    ],
+    [
+      350.5609,
+      -3405.4487
+    ],
+    [
+      350.5609,
+      -3392.9287
+    ],
+    [
+      -187.8005,
+      -3392.9287
+    ],
+    [
+      -187.8005,
+      -3806.0897
+    ],
+    [
+      -62.6002,
+      -3893.73
+    ],
+    [
+      -212.8405,
+      -4206.7308
+    ],
+    [
+      -388.121,
+      -4131.6106
+    ],
+    [
+      -425.6811,
+      -4206.7308
+    ],
+    [
+      -588.4415,
+      -4206.7308
+    ],
+    [
+      -588.4415,
+      -5821.8149
+    ],
+    [
+      212.8405,
+      -5821.8149
+    ],
+    [
+      212.8405,
+      -5421.1739
+    ],
+    [
+      976.5625,
+      -5421.1739
+    ],
+    [
+      976.5625,
+      -5821.8149
+    ]
+  ],
+  "sight_blockers": [
+    {
+      "id": "b-central-structure",
+      "polygon_cm": [
+        [
+          1389.7236,
+          -4995.4928
+        ],
+        [
+          1389.7236,
+          -4219.2508
+        ],
+        [
+          613.4816,
+          -4219.2508
+        ],
+        [
+          613.4816,
+          -4306.891
+        ],
+        [
+          801.2821,
+          -4306.891
+        ],
+        [
+          801.2821,
+          -4920.3726
+        ],
+        [
+          613.4816,
+          -4920.3726
+        ],
+        [
+          613.4816,
+          -4995.4928
+        ]
+      ],
+      "height": "unknown",
+      "source": "manual minimap footprint trace; no in-game collision/height validation"
+    }
+  ],
+  "movement_blockers": [
+    {
+      "id": "b-central-structure",
+      "polygon_cm": [
+        [
+          1389.7236,
+          -4995.4928
+        ],
+        [
+          1389.7236,
+          -4219.2508
+        ],
+        [
+          613.4816,
+          -4219.2508
+        ],
+        [
+          613.4816,
+          -4306.891
+        ],
+        [
+          801.2821,
+          -4306.891
+        ],
+        [
+          801.2821,
+          -4920.3726
+        ],
+        [
+          613.4816,
+          -4920.3726
+        ],
+        [
+          613.4816,
+          -4995.4928
+        ]
+      ],
+      "height": "unknown",
+      "source": "manual minimap footprint trace; no in-game collision/height validation"
+    }
+  ],
+  "regions": [
+    {
+      "id": "boba-minimap-left",
+      "label": "Boba platform / minimap-left (candidate)",
+      "polygon_cm": [
+        [
+          2203.5256,
+          -5809.2949
+        ],
+        [
+          2203.5256,
+          -5008.0128
+        ],
+        [
+          1414.7636,
+          -5008.0128
+        ],
+        [
+          1414.7636,
+          -5809.2949
+        ]
+      ]
+    },
+    {
+      "id": "boba-minimap-right",
+      "label": "Boba platform / minimap-right (candidate)",
+      "polygon_cm": [
+        [
+          2203.5256,
+          -4206.7308
+        ],
+        [
+          2203.5256,
+          -3893.73
+        ],
+        [
+          2366.2861,
+          -3893.73
+        ],
+        [
+          2366.2861,
+          -3417.9688
+        ],
+        [
+          1414.7636,
+          -3417.9688
+        ],
+        [
+          1414.7636,
+          -4206.7308
+        ]
+      ]
+    },
+    {
+      "id": "b-site-below-structure",
+      "label": "B site below structure (candidate)",
+      "polygon_cm": [
+        [
+          575.9215,
+          -5408.6538
+        ],
+        [
+          575.9215,
+          -3417.9688
+        ],
+        [
+          -50.0801,
+          -3417.9688
+        ],
+        [
+          -50.0801,
+          -4231.7708
+        ],
+        [
+          -575.9215,
+          -4231.7708
+        ],
+        [
+          -575.9215,
+          -5809.2949
+        ],
+        [
+          200.3205,
+          -5809.2949
+        ],
+        [
+          200.3205,
+          -5408.6538
+        ]
+      ]
+    }
+  ]
+}

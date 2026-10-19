@@ -8,6 +8,7 @@ import math
 
 from .normalize import fact
 from .source import Export, QueryError, provenance
+from .utility import fight_utility_refs, utility_window
 
 DEFAULTS = {"engagement_gap_ms": 3000, "trade_window_ms": 5000,
             "response_before_ms": 3000, "response_after_ms": 5000,
@@ -29,6 +30,15 @@ def select_player(model: dict, selector: str) -> dict:
         raise QueryError("ambiguous_player" if matches else "unknown_player",
                          "Select a unique subject/state/pawn ID from the players command; agent names can be ambiguous.")
     return matches[0]
+
+
+def player_labels(model: dict, selected: dict) -> dict[str, str]:
+    labels = {}
+    for player in model["players"]:
+        relation = "teammate " if player["team"] == selected["team"] else "enemy "
+        agent = player["agent"] if player["agent"] != "Unknown" else f"agent {player.get('agent_internal') or 'unknown'}"
+        labels[str(player["pawn"])] = "you" if player["pawn"] == selected["pawn"] else relation + agent
+    return labels
 
 
 def alive(model: dict, round_: dict, pawn: int, time_ms: int, before: bool = False) -> bool:
@@ -144,9 +154,11 @@ def teammate_fights(model: dict, round_: dict, selected: dict, positions: Positi
                      and not any(e["kind"] == "resurrection" and e["player"] == opponent
                                  and min(start, d["combat_time_ms"]) < e["time_ms"] <= max(end, d["combat_time_ms"])
                                  for e in model["timeline"])]
-        deaths = [e for e in model["timeline"] if e["kind"] == "death" and e["victim"] == teammate
-                  and e["damage_id"] in {d["id"] for d in visible}]
-        death = deaths[0] if deaths else None
+        damage_ids = {d["id"] for d in visible}
+        linked_deaths = {e["victim"]: e for e in model["timeline"] if e["kind"] == "death"
+                         and e["damage_id"] in damage_ids}
+        death = linked_deaths.get(teammate)
+        opponent_death = linked_deaths.get(opponent)
         outcome = next((t for t in trades if death and t["death_id"] == death["id"]), None)
         summaries.append({"id": f"fight:{visible[0]['id']}:{teammate}", "kind": "teammate_fight",
                           "time_ms": start, "end_ms": end, "teammate": teammate, "opponent": opponent,
@@ -154,6 +166,9 @@ def teammate_fights(model: dict, round_: dict, selected: dict, positions: Positi
                           "teammate_damage_dealt": damage_total([d for d in visible if d["attacker"] == teammate]),
                           "teammate_damage_taken": damage_total([d for d in visible if d["victim"] == teammate]),
                           "teammate_died_in_observed_exchange": bool(death),
+                          "opponent_death": {key: opponent_death.get(key) for key in
+                                             ("id", "time_ms", "killer", "victim", "weapon", "damage_id")}
+                                            if opponent_death else None,
                           "survival_scope": "observed damage group only, clipped to selected player's live intervals",
                           "selected_response": {"status": "recorded_damage_contribution" if responses else "no_recorded_damage_contribution",
                                                 "damage_ids": [d["id"] for d in responses],
@@ -213,6 +228,29 @@ def jett_abilities(model: dict, round_: dict, selected: dict, positions: Positio
     return sorted(abilities, key=lambda e: (e["time_ms"], e["id"]))
 
 
+def player_fights(model: dict, round_: dict, selected: dict, settings: dict,
+                  damage: list[dict], deaths: list[dict]) -> list[dict]:
+    """Pairwise damage groups, using the same grouping rule as teammate fights."""
+    opponents = {p["pawn"] for p in model["players"] if p["team"] != selected["team"]}
+    pawn = selected["pawn"]
+    hits = [d for d in damage if (d["attacker"] == pawn and d["victim"] in opponents)
+            or (d["victim"] == pawn and d["attacker"] in opponents)]
+    result = []
+    for group in group_fights(hits, model, round_, settings):
+        opponent = next(p for p in (group[0]["attacker"], group[0]["victim"]) if p != pawn)
+        ids = {d["id"] for d in group}
+        linked = [e for e in deaths if e["damage_id"] in ids]
+        result.append({"id": f"player_fight:{group[0]['id']}:{pawn}", "kind": "player_fight",
+                       "time_ms": group[0]["combat_time_ms"], "end_ms": group[-1]["combat_time_ms"],
+                       "round_time_ms": group[0]["combat_time_ms"] - round_["live_ms"],
+                       "player": pawn, "opponent": opponent, "damage_ids": [d["id"] for d in group],
+                       "actual_damage_dealt": damage_total([d for d in group if d["attacker"] == pawn]),
+                       "actual_damage_taken": damage_total([d for d in group if d["victim"] == pawn]),
+                       "death_ids": [e["id"] for e in linked],
+                       "method": "pairwise_damage_group; not a complete tactical engagement"})
+    return result
+
+
 def query_round(model: dict, export: Export, number: int, selected: dict, settings: dict | None = None) -> dict:
     config = {**DEFAULTS, **(settings or {})}
     for name, setting in config.items():
@@ -240,7 +278,9 @@ def query_round(model: dict, export: Export, number: int, selected: dict, settin
                    i["item"] == o["item"] and i["player"] == selected["pawn"]
                    and round_["buy_ms"] <= i["time_ms"] < round_["end_ms"] for i in model["equipment"])}
     ownership = [dict(o) for o in model["ownership"] if o["item"] in touched and round_["buy_ms"] <= o["time_ms"] < round_["end_ms"]]
-    timeline.extend(selected_damage + abilities + team_fights + ownership)
+    equipment = [dict(e) for e in model.get("equipment", []) if e["player"] == selected["pawn"]
+                 and round_["buy_ms"] <= e["time_ms"] < round_["end_ms"]]
+    timeline.extend(selected_damage + abilities + team_fights + ownership + equipment)
     priority = {"damage": 0, "death": 1, "resurrection": 2}
     timeline.sort(key=lambda e: (e.get("combat_time_ms", e["time_ms"]), priority.get(e["kind"], 3), e["id"]))
     alive_pawns = set(players)
@@ -254,19 +294,30 @@ def query_round(model: dict, export: Export, number: int, selected: dict, settin
         event["alive"] = {"selected_team": sum(players[p]["team"] == selected["team"] for p in alive_pawns),
                           "opponents": sum(players[p]["team"] != selected["team"] for p in alive_pawns)}
     roles = [r for r in model["team_roles"] if r["team"] == selected["team"] and r["time_ms"] <= round_["live_ms"]]
-    labels = {str(p["pawn"]): ("you" if p["pawn"] == selected["pawn"] else
-                               ("teammate " if p["team"] == selected["team"] else "enemy ") +
-                               (p["agent"] if p["agent"] != "Unknown" else f"agent {p.get('agent_internal') or 'unknown'}"))
-              for p in players.values()}
     deaths = [e for e in timeline if e["kind"] == "death"]
-    evidence = {e["id"]: e for e in damage + timeline}
-    return {"schema_version": 1, "match_id": model["match_id"], "revision": model["revision"],
+    own_fights = player_fights(model, round_, selected, config, damage, deaths)
+    utility = utility_window(model, round_, round_["buy_ms"], round_["end_ms"])
+    utility_evidence = {r["id"]: r for r in utility["records"]}
+    for fight in team_fights + own_fights:
+        fight["utility_context"] = fight_utility_refs(model, fight, selected["pawn"])
+        # Resolve referenced intervals even when the broad round list is capped.
+        refs = set(fight["utility_context"]["status_ids"] + fight["utility_context"]["smoke_ids"])
+        for records in (model.get("utility", {}).get("statuses", []), model.get("utility", {}).get("smokes", [])):
+            for record in records:
+                if record["id"] in refs and record["id"] not in utility_evidence:
+                    utility_evidence[record["id"]] = {k: v for k, v in record.items() if k != "positions"}
+    evidence = {e["id"]: e for e in damage + timeline + own_fights}
+    evidence.update(utility_evidence)
+    return {"schema_version": 1, "round_version": 2, "match_id": model["match_id"], "revision": model["revision"],
             "query": "round", "settings": config, "round": {**round_, "selected_side": roles[-1]["role"] if roles else None},
-            "selected_player": selected, "players": labels, "timeline": timeline, "teammate_fights": team_fights,
+            "selected_player": selected, "players": player_labels(model, selected), "timeline": timeline, "teammate_fights": team_fights,
+            "player_fights": own_fights,
+            "utility": utility,
             "trades": [t for t in trades if players.get(t["victim"], {}).get("team") == selected["team"]],
             "evidence": evidence,
             "coverage": {"death_events": len(deaths), "deaths_matched_to_damage": sum(bool(e["damage_id"]) for e in deaths),
                          "damage_events": len(damage), "teammate_fights": len(team_fights),
+                         "equipment_observations": len(equipment), "ammunition_support": "not_reconstructed",
                          "ability_support": "Jett cast records and corroborated Tailwind only" if selected["agent"] == "Jett" else "unsupported_agent",
                          "parser_quality": model["source_quality"], "truncated": False,
                          "limitations": ["Export observations do not establish complete replay semantics.",

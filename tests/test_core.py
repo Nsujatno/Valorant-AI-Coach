@@ -131,6 +131,26 @@ class ContextTests(unittest.TestCase):
         self.assertEqual(fights[0]["selected_response"]["other_participation"],"unknown")
         self.assertIsNone(fights[0]["selected_distance_at_start"]["distance_m"])
 
+    def test_teammate_kill_is_linked_by_lethal_damage_not_just_time(self):
+        lethal = hit(1200, 2, 3, lethal=True)
+        killed = {**death(1200, 2, 3, "mate_kill"), "damage_id": lethal["id"], "weapon": "Classic"}
+        m = model([killed])
+        fights = teammate_fights(m, ROUND, m["players"][0], Positions([], 250), DEFAULTS,
+                                 [hit(1000, 3, 2), lethal], [])
+        outcome = fights[0]["opponent_death"]
+        self.assertEqual((outcome["killer"], outcome["victim"], outcome["weapon"]), (2, 3, "Classic"))
+        self.assertEqual(outcome["id"], "mate_kill")
+        self.assertEqual(outcome["time_ms"], 1200)
+
+    def test_selected_player_finishing_kill_is_not_credited_to_teammate(self):
+        lethal = hit(1200, 1, 3, lethal=True)
+        killed = {**death(1200, 1, 3, "selected_kill"), "damage_id": lethal["id"]}
+        m = model([killed])
+        fights = teammate_fights(m, ROUND, m["players"][0], Positions([], 250), DEFAULTS,
+                                 [hit(1000, 2, 3), lethal], [])
+        self.assertIsNone(fights[0]["opponent_death"])
+        self.assertEqual(fights[0]["selected_response"]["damage_ids"], [lethal["id"]])
+
     def test_player_dead_clips_fight_and_later_damage(self):
         m = model([death(1500,3,1,"selected")])
         hits = [hit(1000,3,2),hit(1600,2,3),hit(1700,1,3)]

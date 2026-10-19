@@ -68,6 +68,13 @@ class Build1308Tests(unittest.TestCase):
                     and e["killer"] == expected["teammate"] and e["victim"] == expected["opponent"])
         self.assertEqual(kill["weapon"], expected["weapon"])
 
+        outcome = fight["opponent_death"]
+        self.assertEqual(outcome["id"], kill["id"])
+        self.assertEqual(outcome["killer"], expected["teammate"])
+        self.assertEqual(outcome["victim"], expected["opponent"])
+        self.assertEqual(outcome["weapon"], "Classic")
+        self.assertIn("teammate Fade kills enemy Sova with Classic at +40.379s", render_round(report))
+
     def test_user_confirmed_nonlethal_contribution_is_independent_of_kill_credit(self):
         expected = EXPECTED["confirmed_nonlethal_contribution"]
         report = self.reports[expected["round"]]

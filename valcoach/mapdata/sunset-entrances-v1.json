@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "map_asset": "/Game/Maps/Juliett/Juliett",
+  "image_sha256": "1188642e2f94f4fbb17d6c61feb9071d349dec21c9749349db710afbc1bbb228",
+  "candidate_builds": ["++Ares-Core+release-13.08"],
+  "image_size": [1024, 1024],
+  "convention": "Cross-sections are unordered; left/right is computed from the observer toward the entrance. These are candidate annotations, not replay-specific labels.",
+  "entrances": [
+    {
+      "id": "b-main-site-entrance",
+      "label": "B Main",
+      "segment_px": [[88, 606], [137, 606]],
+      "observer_polygon_px": [[46, 350], [244, 350], [244, 577], [137, 577], [137, 605], [88, 605], [88, 578], [46, 578]],
+      "approach_polygon_px": [[58, 607], [137, 607], [137, 656], [175, 656], [175, 689], [58, 689]],
+      "max_range_cm": 5000,
+      "source": "Manual cross-section between the B Main site-side jambs on the public minimap. Observer/approach polygons restrict local use; exact edges, height and build need playback validation."
+    }
+  ]
+}

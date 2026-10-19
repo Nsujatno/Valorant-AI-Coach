@@ -14,3 +14,6 @@ valcoach = "valcoach.__main__:main"
 
 [tool.setuptools.packages.find]
 include = ["valcoach*"]
+
+[tool.setuptools.package-data]
+valcoach = ["mapdata/*.json"]

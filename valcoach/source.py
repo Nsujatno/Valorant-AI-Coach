@@ -55,7 +55,7 @@ def read_rows(path: Path, columns: list[str] | None = None) -> list[dict]:
 FIELD_PATTERN = (
     r"^(Subject|AssignedTeamState|SpawnedCharacter|PlayerState|TeamRole|InitialRole|"
     r"ClientBuyPhaseEnd|CurrentDefuser|Owner|CurrentEquippable|NewCurrentEquippable|"
-    r"bUltimateActive)$|^RoundResults\[|^MulticastNotifyDamage|"
+    r"bUltimateActive|AggregateKills|AggregateDeaths|AggregateAssists)$|^RoundResults\[|^MulticastNotifyDamage|"
     r"^BombPlantedRPC\.|^BombDefusedRPC\.|^MulticastReceivePlayerResurrectEvent\.|"
     r"^AbilityCastsThisRound\["
 )
@@ -99,9 +99,27 @@ class Export:
     def rows(self, name: str) -> list[dict]:
         return read_rows(self.root / f"{name}.parquet")
 
+    def utility_fields(self, pawns: list[int], smoke_actors: list[int]) -> list[dict]:
+        """Keep source identities before filtering utility observations."""
+        columns = ["time_ms", "packet_id", "actor_net_guid", "object_net_guid", "group_path",
+                   "field_name", "raw_bits", "value_i64", "value_f64", "value_bool", "value_str"]
+        table = pq.read_table(self.root / "fields.parquet", columns=columns)
+        table = table.append_column("source_row", pa.array(range(len(table)), type=pa.int64()))
+        names, groups = table["field_name"].cast(pa.string()), table["group_path"].cast(pa.string())
+        player = pc.and_(pc.is_in(table["actor_net_guid"], value_set=pa.array(pawns, type=pa.uint32())),
+                         pc.or_(pc.and_(pc.equal(groups, "/Script/ShooterGame.EffectManagerComponent_ClassNetCache"),
+                                       pc.match_substring_regex(names, r"^Multicast(Play|Stop)ContinuousEffect\.(EffectContainer|EffectID|SourceID|bLocalEffect|bTransient)$")),
+                                pc.and_(pc.equal(groups, "/Script/ShooterGame.BlindManagerComponent"),
+                                        pc.match_substring_regex(names, r"^ActiveBlinds($|\[)"))))
+        smoke = pc.and_(pc.is_in(table["actor_net_guid"], value_set=pa.array(smoke_actors, type=pa.uint32())),
+                        pc.is_in(names, value_set=pa.array(["Instigator", "ReplicatedMovement"])))
+        return table.filter(pc.fill_null(pc.or_(player, smoke), False)).to_pylist()
+
     def movement(self, start_ms: int, end_ms: int, pawns: list[int]) -> list[dict]:
         columns = ["time_ms", "packet_id", "character_net_guid", "pos_x", "pos_y", "pos_z",
                    "vel_x", "vel_y", "vel_z"]
+        available = set(pq.read_schema(self.root / "movement.parquet").names)
+        columns.extend(name for name in ("yaw", "pitch") if name in available)
         table = pq.read_table(self.root / "movement.parquet", columns=columns)
         table = table.append_column("source_row", pa.array(range(len(table)), type=pa.int64()))
         mask = pc.and_(pc.and_(pc.greater_equal(table["time_ms"], start_ms),

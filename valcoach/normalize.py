@@ -12,8 +12,9 @@ import re
 import tempfile
 
 from .source import Export, QueryError, packed_guid, provenance, value
+from .effects import reconstruct_utility
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 3
 AGENTS = {"Wushu": "Jett", "Rift": "Astra", "BountyHunter": "Fade", "Clay": "Raze",
           "Gumshoe": "Cypher", "Deadeye": "Chamber", "Vampire": "Reyna", "Smonk": "Clove", "Hunter": "Sova",
           "Phoenix": "Phoenix", "Killjoy": "Killjoy",
@@ -123,6 +124,22 @@ def reconstruct_damage(rows: list[dict], classes: dict[int, str], guid_paths: di
     return damage
 
 
+def reconstruct_scoreboard(rows: list[dict], players: list[dict]) -> dict:
+    """Latest replicated aggregate per player; missing counters remain unknown."""
+    states = {p["state_id"]: str(p["pawn"]) for p in players}
+    fields = {"AggregateKills": "kills", "AggregateDeaths": "deaths", "AggregateAssists": "assists"}
+    result = {pawn: {} for pawn in states.values()}
+    for row in sorted(rows, key=lambda r: (r["time_ms"], r["source_row"])):
+        if row["actor_net_guid"] not in states or row["field_name"] not in fields:
+            continue
+        number = value(row)
+        valid = isinstance(number, int) and not isinstance(number, bool) and number >= 0
+        result[states[row["actor_net_guid"]]][fields[row["field_name"]]] = {
+            "value": number if valid else None, "observed_time_ms": row["time_ms"],
+            "source": provenance(row), "status": "observed" if valid else "unknown_value"}
+    return result
+
+
 def normalize(export: Export) -> dict:
     rows = export.fields()
     actors = export.rows("actors")
@@ -177,12 +194,14 @@ def normalize(export: Export) -> dict:
         if len(candidates) != 1:
             raise QueryError("round_boundary_conflict", f"Round {i + 1}: expected exactly one live-start marker.")
         rounds.append({"number": int(start["word0"]) + 1, "buy_ms": start["time1"],
-                       "live_ms": candidates[0], "end_ms": end, "result": {}})
+                       "live_ms": candidates[0], "end_ms": end, "result": {},
+                       "source": provenance(start, "events"), "result_sources": {}})
     for row in rows:
         match = re.fullmatch(r"RoundResults\[(\d+)\]\.(\w+)", row.get("field_name") or "")
         if match and int(match[1]) < len(rounds):
             target = rounds[int(match[1])]
             target["result"][match[2]] = value(row)
+            target["result_sources"][match[2]] = provenance(row)
             target["result_time_ms"] = row["time_ms"]
     damage = reconstruct_damage(rows, classes, guids)
     timeline = []
@@ -222,14 +241,17 @@ def normalize(export: Export) -> dict:
                                   weapon=name_for_class(classes.get(value(row)))))
     return {"schema_version": SCHEMA_VERSION, "replay_build": export.manifest["replay_build"],
             "map_asset": (export.manifest.get("level_names_and_times") or [{}])[0].get("name"),
-            "players": player_list, "rounds": rounds, "team_roles": team_roles,
+            "players": player_list, "scoreboard": reconstruct_scoreboard(rows, player_list),
+            "rounds": rounds, "team_roles": team_roles,
             "damage": damage, "timeline": sorted(timeline, key=lambda e: (e["time_ms"], e["id"])),
             "casts": reconstruct_casts(rows), "equipment": equipment, "ownership": ownership,
-            "source_quality": export.manifest.get("quality", {})}
+            "source_quality": export.manifest.get("quality", {}),
+            "utility": reconstruct_utility(export, actors, player_list, rounds, timeline, guids)}
 
 
 def load_match(export: Export, cache_dir: Path | None = None) -> tuple[dict, bool]:
-    code_hash = hashlib.sha256(Path(__file__).read_bytes() + Path(__file__).with_name("source.py").read_bytes()).hexdigest()
+    code_hash = hashlib.sha256(b"".join(Path(__file__).with_name(name).read_bytes()
+                                      for name in ("normalize.py", "source.py", "effects.py"))).hexdigest()
     revision = hashlib.sha256(f"{export.fingerprint}:{code_hash}".encode()).hexdigest()
     cache_dir = cache_dir or Path.cwd() / ".valcoach-cache"
     cache_file = cache_dir / f"{revision}.json"
