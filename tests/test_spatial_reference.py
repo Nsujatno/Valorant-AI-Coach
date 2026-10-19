@@ -24,7 +24,7 @@ class SunsetSpatialTests(unittest.TestCase):
         cls.targets = [select_player(cls.model, s) for s in ("54", "64", "72")]
         cls.report = query_spatial(cls.model, cls.export, 2, cls.player, 29635, 29885,
                                    SpatialSettings(step_ms=125, allow_candidate_map=True), cls.targets,
-                                   map_path=ROOT/"valcoach/mapdata/sunset-b-v0.json")
+                                   map_path=ROOT/"valcoach/mapdata/sunset-full-v1.json")
 
     def test_r2_recorded_samples_and_bearings(self):
         first, second = self.report["snapshots"]
@@ -39,10 +39,16 @@ class SunsetSpatialTests(unittest.TestCase):
         self.assertIsNone(second["players"][1]["position_cm"])
 
     def test_candidate_estimates_preserve_uncertainty(self):
+        self.assertEqual(self.report["map_model"]["id"], "sunset-full-minimap-v1")
         self.assertEqual(self.report["map_model"]["validation"], "candidate_unverified")
         relations = {r["to"]: r for r in self.report["snapshots"][0]["relations"]}
-        self.assertEqual(relations[968]["static_sightline"]["blocker_ids"], ["b-central-structure"])
-        self.assertEqual(relations[538]["static_sightline"]["status"], "clear_in_annotated_2d_model")
+        self.assertEqual(relations[968]["static_sightline"]["status"], "blocked_in_annotated_2d_model")
+        self.assertEqual(relations[968]["static_sightline"]["blocker_ids"], ["minimap-void-01"])
+        # The full outline adds a corner absent from the earlier B-only trace.
+        # Grazing that corner's uncertainty band does not establish a clear line.
+        self.assertEqual(relations[538]["static_sightline"]["status"], "unknown")
+        self.assertEqual(relations[538]["static_sightline"]["reason"], "near_sight_blocker_edge")
+        self.assertEqual(relations[538]["static_sightline"]["blocker_ids"], ["minimap-void-02"])
         self.assertEqual(relations[770]["walking_access"]["length_m"], 16.481)
         self.assertTrue(all(r["actual_visibility"] is None and r["actual_access"] is None for r in relations.values()))
         self.assertIn("unvalidated", relations[968]["height_assessment"])

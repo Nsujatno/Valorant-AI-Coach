@@ -127,7 +127,7 @@ Static sightlines describe only annotated 2D footprints: `clear_in_annotated_2d_
 
 Floor/eye height, temporary walls, doors and player knowledge are not reconstructed. Smoke lifecycles and supported player visual-effect observations are available as described below; actual smoke opacity and impairment severity remain unknown. `actual_visibility` and `actual_access` remain `null`. Coordinate alignment, the 13.08 scene layout and positive/negative sight/access cases still need independent playback validation before stronger coaching claims. Other maps still get position/facing and supported utility evidence without static map estimates.
 
-The original limited model is retained at `valcoach/mapdata/sunset-b-v0.json`; use `--map-model` with that path to reproduce its earlier estimates. Its pinned R2 regression records a -2.6 degree bearing to Raze, a structure intersection toward Sova and a roughly 16.5 m walking route to Miks. Changing the map trace can change paths; earlier artifacts/expectations have not been silently replaced.
+The R2 spatial regression uses `valcoach/mapdata/sunset-full-v1.json`: the Sova line intersects an enclosed footprint, the Raze line grazes another corner's uncertainty band, and the modeled walking route to Miks is roughly 16.5 m. The earlier B-only model has been retired. Existing generated reports retain their original geometry revisions and are historical estimates; their sightline results may differ from the current full-map trace.
 
 ### Facing a mapped entrance
 
