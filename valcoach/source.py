@@ -59,7 +59,7 @@ FIELD_PATTERN = (
     r"CurrentTemporaryCharges|MaxCharges|CooldownActive|CooldownSeconds|CurrentState|Ammo|"
     r"AggregateKills|AggregateDeaths|AggregateAssists)$|^Multicast Update Daggers\.DaggersRemaining$|^RoundResults\[|^MulticastNotifyDamage|"
     r"^BombPlantedRPC\.|^BombDefusedRPC\.|^MulticastReceivePlayerResurrectEvent\.|"
-    r"^AbilityCastsThisRound\["
+    r"^AbilityCastsThisRound\[|^ReplayPlay(Continuous|OneShot)EffectAtLocation\.(EffectContainer|FloatValues|ObjectValues|VectorValues|248)$"
 )
 
 # Explicitly exercised exports; new parser branches are not automatically enabled.

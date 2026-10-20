@@ -9,7 +9,7 @@ from .spatial import SpatialSettings, query_spatial
 from .utility import overlaps
 from .resources import resource_state, resource_window, resource_evidence
 
-FIGHT_VERSION = 5
+FIGHT_VERSION = 6
 MAX_EVENTS = 16
 MAX_LINKS = 20
 MAX_RESOURCE_EVENTS = 4
@@ -226,6 +226,9 @@ def query_fight(model, export, number, selected, fight_id=None, at_ms=None, evid
         if record is None:
             record = next((r for r in model.get("checkpoint_state",{}).get("equipment",[])
                            if r["id"] == evidence_id and r["scope_round"] == number and r["player"] == selected["pawn"]),None)
+        if record is None:
+            record = next((r for r in model.get("gunfire",{}).get("observations",[]) if r["id"]==evidence_id
+                           and r["player"]==selected["pawn"] and report["round"]["buy_ms"]<=r["time_ms"]<report["round"]["end_ms"]),None)
         if record is None:
             data = model.get("utility", {})
             for kind, items in (("smoke", data.get("smokes", [])), ("player_status", data.get("statuses", [])),

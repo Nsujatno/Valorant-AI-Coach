@@ -18,6 +18,8 @@ from .fight import FightSettings, query_fight
 from .render.fight import render_fight
 from .resources import query_resources
 from .render.resources import render_resources
+from .gunfire import query_gunfire
+from .render.gunfire import render_gunfire
 
 
 def parser() -> argparse.ArgumentParser:
@@ -28,11 +30,12 @@ def parser() -> argparse.ArgumentParser:
                         ("spatial", "Inspect bounded positions/facing and annotated map sight/access estimates"),
                         ("fight", "List fights or inspect compact fight context and individual evidence"),
                         ("resources", "Inspect ammo, ability resources and weapon states at a round time"),
+                        ("gunfire", "Inspect tagged firing effects, projectile directions and nearby damage context"),
                         ("round", "Inspect one round, Jett abilities, teammate fights and trade context")]:
         command = commands.add_parser(name, help=help_)
-        if name in {"round", "spatial", "fight", "resources"}:
+        if name in {"round", "spatial", "fight", "resources", "gunfire"}:
             command.add_argument("number", type=int, help="One-based round number")
-        if name in {"round", "overview", "spatial", "fight", "resources"}:
+        if name in {"round", "overview", "spatial", "fight", "resources", "gunfire"}:
             command.add_argument("--player", required=True, help="Subject UUID, state ID or pawn ID; a unique agent name also works")
         if name in {"round", "overview", "fight"}:
             for option in ("engagement_gap_ms", "trade_window_ms", "response_before_ms", "response_after_ms", "movement_max_age_ms"):
@@ -47,6 +50,12 @@ def parser() -> argparse.ArgumentParser:
             command.add_argument("--after-ms", type=int, default=3000)
             command.add_argument("--limit", type=int, default=40, help="Resource observations per page (1-200)")
             command.add_argument("--offset", type=int, default=0)
+        if name == "gunfire":
+            command.add_argument("--start-ms",type=int)
+            command.add_argument("--end-ms",type=int)
+            command.add_argument("--limit",type=int,default=20)
+            command.add_argument("--offset",type=int,default=0)
+            command.add_argument("--damage-window-ms",type=int,default=100)
         if name == "overview":
             command.add_argument("--limit", type=int, default=20, help="Review events per page (1-100); round totals always cover the full match")
             command.add_argument("--offset", type=int, default=0, help="Zero-based review-event offset")
@@ -107,6 +116,9 @@ def _query(arguments, export: Export, model: dict) -> dict:
                 "query": "players", "players": model["players"], "replay_build": model["replay_build"],
                 "rounds": [r["number"] for r in model["rounds"]]}
     selected = select_player(model, arguments.player)
+    if arguments.command == "gunfire":
+        return query_gunfire(model,arguments.number,selected,arguments.start_ms,arguments.end_ms,
+                             arguments.limit,arguments.offset,arguments.damage_window_ms)
     if arguments.command == "resources":
         return query_resources(model, arguments.number, selected, arguments.at_ms, arguments.before_ms,
                                arguments.after_ms, arguments.limit, arguments.offset)
@@ -126,14 +138,14 @@ def _query(arguments, export: Export, model: dict) -> dict:
 
 def _render(response: dict, as_json: bool) -> str:
     if as_json:
-        if response["query"] in {"fight", "fight_index", "evidence", "resources"}:
+        if response["query"] in {"fight", "fight_index", "evidence", "resources", "gunfire"}:
             return json.dumps(response, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
         return json.dumps(response, indent=2, ensure_ascii=False, allow_nan=False)
     if response["query"] == "players":
         return "\n".join(f"state {p['state_id']} / pawn {p['pawn']} | team {p['team']} | {p['agent']} | {p['id']}"
                          for p in response["players"])
     renderer = {"overview":render_overview,"round":render_round,"spatial":render_spatial,
-                "fight":render_fight,"fight_index":render_fight,"evidence":render_fight,"resources":render_resources}[response["query"]]
+                "fight":render_fight,"fight_index":render_fight,"evidence":render_fight,"resources":render_resources,"gunfire":render_gunfire}[response["query"]]
     return renderer(response)
 
 

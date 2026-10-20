@@ -1,10 +1,10 @@
 # ValCoach — replay evidence queries
 
-ValCoach reads an **existing vrfkit Parquet export** and produces match/round evidence, compact fight investigations, utility context and bounded spatial queries. An initial coaching skill is included. Fresh-host coaching validation, managed replay import and packaged distribution remain in development.
+ValCoach reads an **existing vrfkit Parquet export** and produces match/round evidence, compact fight investigations, firing/resource observations, utility context and bounded spatial queries. An initial coaching skill is included. Fresh-host coaching validation, managed replay import and packaged distribution remain in development.
 
 The reference export already exists locally. Nothing needs downloading to run these commands in this workspace.
 
-Contributor guidance: [AGENTS.md](AGENTS.md). Local planning and handoff notes (`plan.md`, `mvp-plan.md`, `PROGRESS.md`) are intentionally ignored by Git and may be absent from another checkout. Private replays and exports are also excluded.
+Contributor guidance: [AGENTS.md](AGENTS.md), [architecture and code map](docs/architecture.md), and [replay correctness](docs/replay-correctness.md). Local planning and handoff notes (`plan.md`, `mvp-plan.md`, `PROGRESS.md`) are intentionally ignored by Git and may be absent from another checkout. Private replays and exports are also excluded.
 
 ## Run on Windows
 
@@ -199,7 +199,7 @@ Jett's exact supported Blueprint knife-count fields are decoded as signed little
 
 Gun state observations resolve the main EquippableStateMachine's state identity, including firing, reload and readying; zoom-machine changes cannot overwrite it. A firing state can cover multiple bullets. A reload-state observation and a later ammo refill are distinct events; neither proves the exact reload-completion time. **Complete shot counts, missed shots and effective weapon/ability readiness remain unknown.** A positive count does not establish that the player could use it while impaired, equipping or otherwise constrained.
 
-Round version 4 includes up to 200 resource observations under `resources`, with explicit omissions; use the focused command to inspect/page a window. Fight version 5 includes `state_at_anchor.resources` and up to four compact surrounding resource records. Counts, times and evidence references are retained; repeated owner metadata and known ability class paths stay in detailed queries. Individual record details, including pre-pickup ammo used in a snapshot, are retrievable with `fight --evidence-id` for an item held by that player in the round. This keeps fight output bounded. Normalized schema v5 caches resources and checkpoint state; reconstruction code participates in its revision.
+Round version 4 includes up to 200 resource observations under `resources`, with explicit omissions; use the focused command to inspect/page a window. Fight version 6 includes `state_at_anchor.resources` and up to four compact surrounding resource records, plus individual firing-evidence lookup. Counts, times and evidence references are retained; repeated owner metadata and known ability class paths stay in detailed queries. Individual record details, including pre-pickup ammo used in a snapshot, are retrievable with `fight --evidence-id` for an item held by that player in the round. This keeps fight output bounded. Normalized schema v6 caches resources, checkpoint state and firing observations; reconstruction code participates in its revision.
 
 For the local R24 regression, the export records zero knives and the ultimate inactive at +14.993 s. At +64.639 s, the selected player has a Spectre equip observation, last-observed magazine/reserve counts of 25/90, and a last-observed `ReadyingState`. These are source-backed checks against the earlier user correction, not independent playback verification of animation timing or readiness.
 
@@ -225,9 +225,42 @@ Retrieve one normalized record with its detailed source/components when needed:
 
 Use the same player and heuristic settings for evidence retrieval. Fight queries accept the existing round heuristic flags. A source must belong to that round/player report. Movement row/packet/time references are already present in snapshots; use `spatial` for full precision. Markdown output and new `--output` paths are supported as usual. The implementation calls the shared round/spatial analyses locally; follow-ups reuse normalized facts but still read relevant movement data.
 
-The portable coaching skill is [skills/valcoach-review/SKILL.md](skills/valcoach-review/SKILL.md). It guides overview → investigations from both recorded sides → focused fights/evidence → successful comparisons → one practice focus. Full-match reviews use the complete round index to cover attack and defense; a limited page of event details is not a representative match review. Round side is separate from the fight's tactical situation: an attacker being pushed is not automatically making an entry. Player-facing reviews use familiar VALORANT language and practical advice; technical evidence stays in the investigation unless requested, and uncertainty is explained in plain language where it affects the advice. A host can be instructed to read that file directly. Copying that skill folder into a host's supported skills directory enables its normal discovery; this repository source is not a full plugin/runtime installer. The format follows [OpenAI's skill guidance](https://learn.chatgpt.com/docs/build-skills).
+The portable coaching skill is [skills/valcoach-review/SKILL.md](skills/valcoach-review/SKILL.md). It guides overview → investigations from both recorded sides → focused fight/resource/firing evidence → successful comparisons → one practice focus. Full-match reviews use the complete round index to cover attack and defense; a limited page of event details is not a representative match review. Round side is separate from the fight's tactical situation: an attacker being pushed is not automatically making an entry. Player-facing reviews use familiar VALORANT language and practical advice; technical evidence stays in the investigation unless requested, and uncertainty is explained in plain language where it affects the advice. A host can be instructed to read that file directly. Copying that skill folder into a host's supported skills directory enables its normal discovery; this repository source is not a full plugin/runtime installer. The format follows [OpenAI's skill guidance](https://learn.chatgpt.com/docs/build-skills).
 
 Local R2/R9 measurements reduced compact JSON size from 90,635 to 14,177 bytes (84.4%) and 63,637 to 14,805 bytes (76.7%) respectively, compared with equally compact full-round serialization. This is a sample byte comparison, not a general token/latency promise. A guided coaching trial and payload measurements are saved locally under `output/coaching-20261018/`; a fresh-host coaching evaluation remains separate from automated fact tests.
+
+## Firing observations, including firing without damage
+
+Inspect the selected player's firing effects in a round or time window:
+
+```powershell
+.\.venv\Scripts\python.exe -m valcoach gunfire 2 --export output/replay-5c31718d/raw --player 58 --start-ms 28000 --end-ms 31000
+.\.venv\Scripts\python.exe -m valcoach gunfire 2 --export output/replay-5c31718d/raw --player 58 --start-ms 28000 --end-ms 31000 --json
+```
+
+Gunfire version 1 resolves declared `FiringState.*` gameplay-tag names from the export's metadata and reads typed float/object/vector effect arrays. Numeric tag IDs are not assumed stable. It exposes firing time, shooter attribution, source item, ammo remaining, projectile count, sequence index, source origin and attack vectors where recorded, with source rows and explicit missing/conflicting values. Adjacent repeated effects in one packet remain separate. Other visual effects do not become shots. Standard guns use `item_kind: gun`; other sources, including Chamber ability weapons and Killjoy turret attacks observed in the reference exports, use `other_firing_source`. A turret's player attribution does not prove that player pulled the trigger. Detailed knife-attack coverage is not established by this audit.
+
+One firing effect can describe several projectiles. `BurstShotNumber` is a sequence index, not a decoded burst-fire mode. Direction vectors are observations, not crosshair pixels or target/visibility judgments. Unresolved shooters/items and malformed arrays appear in coverage. **Complete bullet totals, intended targets and hit/miss classification remain unknown.** The legacy resource `shots_fired` placeholder stays unknown; this command returns observed firing activity rather than claiming a complete count. This interpretation uses the pinned vrfkit [data format](https://github.com/yakisoba0728/vrfkit/blob/v0.3.0/docs/DATA.md) and [bundle adapter](https://github.com/yakisoba0728/vrfkit/blob/b9496df61c40fa304d4f539689c1dd627804946e/tools/to_valplay_bundle.py), with stricter invocation/identity checks.
+
+Windows use milliseconds since live start, start inclusive/end exclusive; negative buy-phase times are allowed inside the round. With no window, the command covers live start through the round boundary, including post-round observations. Pagination uses `--limit` 1–100 (default 20) and nonnegative `--offset`. Nearby damage requires the same shooter and item within a symmetric `--damage-window-ms` tolerance (0–1000, default 100). Several firing effects can share nearby damage; that relationship is context, never a projectile-to-hit assignment. No nearby damage does not prove a miss. Existing damage-based fight grouping is unchanged.
+
+Retrieve a firing record's full source details using its returned ID with `fight <round> --evidence-id <id>` and the same export/player. JSON/readable output and new `--output` paths work as usual. These observations need no parser update or dependency download.
+
+## Checking a parser upgrade
+
+Existing regression tests exercise saved exports; they cannot discover what a different parser would export until that parser is run on the same replay. Preserve the baseline export, export that replay into a **new directory** with the chosen parser, then compare:
+
+```powershell
+.\.venv\Scripts\python.exe -m valcoach.compare_exports --baseline output/first-replay/raw --candidate output/first-replay-new-parser/raw --output output/parser-upgrade-review.json --check
+```
+
+The comparison command never runs or downloads a parser. It requires matching declared replay GUIDs and matching source sizes when both are available. Reports must use new paths outside both raw exports. Its source inventory covers all Parquet tables/columns/types/hashes, observed field names/checksums, typed-coverage gains/losses, declared fields and quality counters. It discovers fields not yet consumed by ValCoach. Added declarations can be unused metadata and need review.
+
+The same current normalizer processes both exports. The report compares selected reconstructed facts: player/round identity, damage, timeline, casts, equipment, resources, firing, team roles, scoreboard and supported utility. It ignores provenance row IDs and row ordering while preserving duplicate fact counts. Byte changes still require review even when these facts agree. Raw movement changes are flagged by hashes/schema/counts; sampled spatial results and coaching judgments are not semantically compared. If normalization fails or the candidate build is unsupported, the source inventory remains available and semantic equality is unknown.
+
+`--limit` bounds examples to 1–100 per category (default 40); difference totals stay complete. `--check` returns 0 when no review is required, 2 when differences or unavailable semantic checks require review, and 1 on comparison errors. Without `--check`, a successfully generated report returns 0 even if review is required. An identical-export comparison is a useful sanity check, not a parser-upgrade validation.
+
+Parser version/checksum remains unknown if absent from the saved export metadata; the currently installed executable cannot establish which parser created an older export. Managed import will need to record that provenance. Investigate changes, add focused regressions and rerun the suite before accepting an upgrade. This report never updates reference expectations or extends the supported-build allowlist automatically.
 
 ## Playback verification pack
 
@@ -247,6 +280,6 @@ This developer helper is specific to the existing reference game. Use a new outp
 
 Unit tests exercise state reconstruction, missing/stale data, trade boundaries, resurrection, fight grouping, and participation semantics. Overview tests cover deduplicated response damage, missing counters, scoreboard/event differences, side changes, pagination, and round evidence retrieval. Spatial tests add angle wrapping, partial rotation, life/freshness boundaries, coordinate transforms, build gating, separate sight/walking layers, wall detours, door clearance, edge/coverage uncertainty, output budgets and diagram/output guards. Integration tests use the private export in `output/first-replay/raw/` when available; set `VALCOACH_TEST_EXPORT` to relocate that same reference export. The 13.08 tests use `output/replay-5c31718d/raw/`; set `VALCOACH_TEST_EXPORT_1308` to relocate that second export. Each private-export test skips when its input is unavailable. Minimal expected-values fixtures are in `tests/fixtures/`; original replays/exports are not bundled.
 
-The latest test results and remaining manual verification are recorded in local `PROGRESS.md` when present. Automated agreement with recorded expectations does not independently verify unreviewed replay content, map geometry or coaching quality.
+Gunfire tests cover shifted tag IDs, repeated invocations, malformed/conflicting arrays, source lifetimes, multi-projectile/other-source boundaries, pagination and both private builds. Export-comparison tests cover newly decoded data, removals, schema/quality changes, provenance-independent fact comparisons, duplicate counts and read-only input/output guards. The latest test results and remaining manual verification are recorded in local `PROGRESS.md` when present. Automated agreement with recorded expectations does not independently verify unreviewed replay content, map geometry or coaching quality.
 
 The existing development environment already has PyArrow 25.0.1. The packaging declaration in `pyproject.toml` is for future installation/build work; the module commands above work without installing the project or fetching dependencies.

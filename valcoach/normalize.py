@@ -15,8 +15,9 @@ from .source import Export, QueryError, packed_guid, provenance, value
 from .effects import reconstruct_utility
 from .resources import reconstruct_resources
 from .checkpoints import reconstruct_checkpoints
+from .gunfire import reconstruct_gunfire
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 AGENTS = {"Wushu": "Jett", "Rift": "Astra", "BountyHunter": "Fade", "Clay": "Raze",
           "Gumshoe": "Cypher", "Deadeye": "Chamber", "Vampire": "Reyna", "Smonk": "Clove", "Hunter": "Sova",
           "Phoenix": "Phoenix", "Killjoy": "Killjoy",
@@ -248,6 +249,9 @@ def normalize(export: Export) -> dict:
         resources[key] = sorted(resources[key]+checkpoints.resources[key],key=lambda r:(r["time_ms"],r["source"]["table"],r["source"]["row"]))
     for equip in checkpoints.equipment:
         equip["weapon"] = name_for_class(equip["item_class"])
+    gunfire = reconstruct_gunfire(rows,export.manifest,actors,guid_rows,player_list)
+    for record in gunfire["observations"]:
+        record["weapon"] = name_for_class(record["item_class"])
     return {"schema_version": SCHEMA_VERSION, "replay_build": export.manifest["replay_build"],
             "map_asset": (export.manifest.get("level_names_and_times") or [{}])[0].get("name"),
             "players": player_list, "scoreboard": reconstruct_scoreboard(rows, player_list),
@@ -255,13 +259,14 @@ def normalize(export: Export) -> dict:
             "damage": damage, "timeline": sorted(timeline, key=lambda e: (e["time_ms"], e["id"])),
             "casts": reconstruct_casts(rows), "equipment": equipment, "ownership": ownership,
             "resources": resources, "checkpoint_state":{"equipment":checkpoints.equipment,"coverage":checkpoints.coverage},
+            "gunfire":gunfire,
             "source_quality": export.manifest.get("quality", {}),
             "utility": reconstruct_utility(export, actors, player_list, rounds, timeline, guids)}
 
 
 def load_match(export: Export, cache_dir: Path | None = None) -> tuple[dict, bool]:
     code_hash = hashlib.sha256(b"".join(Path(__file__).with_name(name).read_bytes()
-                                      for name in ("normalize.py", "source.py", "effects.py", "resources.py", "checkpoints.py", "equipment.py"))).hexdigest()
+                                      for name in ("normalize.py", "source.py", "effects.py", "resources.py", "checkpoints.py", "equipment.py", "gunfire.py"))).hexdigest()
     revision = hashlib.sha256(f"{export.fingerprint}:{export.checkpoint_fingerprint}:{code_hash}".encode()).hexdigest()
     cache_dir = cache_dir or Path.cwd() / ".valcoach-cache"
     cache_file = cache_dir / f"{revision}.json"
