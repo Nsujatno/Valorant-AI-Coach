@@ -14,8 +14,9 @@ import tempfile
 from .source import Export, QueryError, packed_guid, provenance, value
 from .effects import reconstruct_utility
 from .resources import reconstruct_resources
+from .checkpoints import reconstruct_checkpoints
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 AGENTS = {"Wushu": "Jett", "Rift": "Astra", "BountyHunter": "Fade", "Clay": "Raze",
           "Gumshoe": "Cypher", "Deadeye": "Chamber", "Vampire": "Reyna", "Smonk": "Clove", "Hunter": "Sova",
           "Phoenix": "Phoenix", "Killjoy": "Killjoy",
@@ -241,21 +242,27 @@ def normalize(export: Export) -> dict:
             equipment.append(fact("equipped", row["time_ms"], provenance(row), player=row["actor_net_guid"],
                                   item=value(row), item_class=classes.get(value(row)),
                                   weapon=name_for_class(classes.get(value(row)))))
+    resources = reconstruct_resources(rows, actors, guid_rows, player_list)
+    checkpoints = reconstruct_checkpoints(export.checkpoints(),player_list,rounds,actors)
+    for key in ("observations","ownership"):
+        resources[key] = sorted(resources[key]+checkpoints.resources[key],key=lambda r:(r["time_ms"],r["source"]["table"],r["source"]["row"]))
+    for equip in checkpoints.equipment:
+        equip["weapon"] = name_for_class(equip["item_class"])
     return {"schema_version": SCHEMA_VERSION, "replay_build": export.manifest["replay_build"],
             "map_asset": (export.manifest.get("level_names_and_times") or [{}])[0].get("name"),
             "players": player_list, "scoreboard": reconstruct_scoreboard(rows, player_list),
             "rounds": rounds, "team_roles": team_roles,
             "damage": damage, "timeline": sorted(timeline, key=lambda e: (e["time_ms"], e["id"])),
             "casts": reconstruct_casts(rows), "equipment": equipment, "ownership": ownership,
-            "resources": reconstruct_resources(rows, actors, guid_rows, player_list),
+            "resources": resources, "checkpoint_state":{"equipment":checkpoints.equipment,"coverage":checkpoints.coverage},
             "source_quality": export.manifest.get("quality", {}),
             "utility": reconstruct_utility(export, actors, player_list, rounds, timeline, guids)}
 
 
 def load_match(export: Export, cache_dir: Path | None = None) -> tuple[dict, bool]:
     code_hash = hashlib.sha256(b"".join(Path(__file__).with_name(name).read_bytes()
-                                      for name in ("normalize.py", "source.py", "effects.py", "resources.py"))).hexdigest()
-    revision = hashlib.sha256(f"{export.fingerprint}:{code_hash}".encode()).hexdigest()
+                                      for name in ("normalize.py", "source.py", "effects.py", "resources.py", "checkpoints.py", "equipment.py"))).hexdigest()
+    revision = hashlib.sha256(f"{export.fingerprint}:{export.checkpoint_fingerprint}:{code_hash}".encode()).hexdigest()
     cache_dir = cache_dir or Path.cwd() / ".valcoach-cache"
     cache_file = cache_dir / f"{revision}.json"
     if cache_file.is_file():

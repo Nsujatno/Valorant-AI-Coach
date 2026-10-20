@@ -32,6 +32,7 @@ This map describes the current layout; it is not a required file structure or a 
 | `valcoach/angles.py` | Observer-relative facing intersections with mapped entrances and target-side projections; no visibility/intent judgments |
 | `valcoach/equipment.py` | Last equip observations scoped to round/life; conflicts and unknown ammo/charges remain explicit |
 | `valcoach/resources.py` | Item/component resource observations, ownership/life scopes, ammo/knives/charges/weapon states and bounded snapshots; no effective-readiness or complete-shot inference |
+| `valcoach/checkpoints.py` | Explicit checkpoint round/identity validation and resource/equipment seeds; snapshots keep their own clocks and never become live action events |
 | `valcoach/effects.py`, `valcoach/utility.py` | Cached smoke lifecycles/status reconstruction and shared bounded utility/fight/spatial context |
 | `valcoach/map_model.py`, `valcoach/geometry.py` | Versioned map validation/transforms, planar intersections and bounded walking routes |
 | `valcoach/mapdata/` | Public-source annotation data, hashes and explicit build/validation coverage; no private replay facts |
@@ -47,6 +48,7 @@ This map describes the current layout; it is not a required file structure or a 
 | `tests/test_angles.py` | Entrance direction, viewpoint conventions, footprint coverage and uncertainty regressions |
 | `tests/test_equipment.py` | Equip transitions, life boundaries, conflicting observations and resource-availability limits |
 | `tests/test_resources.py` | Resource component identity, pickups, actor reuse, life/cast resets, conflicts, pagination and private-export knife/ammo/reload regressions |
+| `tests/test_checkpoints.py` | Checkpoint clocks/round markers, identity/incarnation boundaries, missing defaults, source retrieval and supplemental-cache invalidation |
 | `tests/test_utility.py`, `tests/test_utility_reference.py` | Utility pairing, missing data, smoke hypotheses and private-source regressions |
 | `tests/test_fight.py` | Compact context selection, limits, source agreement and private replay checks |
 | `skills/valcoach-review/SKILL.md` | Portable coaching workflow and evidence/interpretation boundaries |
@@ -88,6 +90,7 @@ These paths/selectors describe the local reference fixture; discover players for
 - Separate raw damage from actual life removed, and preserve health/armor/overheal components. Respect weapon ownership intervals and post-death pickups.
 - Unknown values remain unknown, not zero. Unknown weapon/agent identifiers remain available for later mapping. Do not silently extend build compatibility without validation.
 - Resource fields require matching component group, item incarnation and ownership. Keep base/signature/temporary charge channels separate. Ammo deltas and firing/reload states do not establish individual shots, misses, completed reloads or effective readiness. Decode raw integers only for exact supported Blueprint fields and payload widths.
+- Checkpoints are a separate state stream. Use explicit saved round markers and per-checkpoint identity/component metadata; never assume checkpoint index equals round or shift timestamps to buy start. Missing default fields stay unknown, and snapshot active/equip observations do not create casts/actions. Include supplemental checkpoint content in cache revision while preserving match identity.
 - Include damage-based teammate fights with either outcome while the selected player is alive. Do not hide them behind a fixed distance cutoff in the agreed first slice.
 - Nonlethal damage contribution is independent of completed trades. “No recorded damage contribution” does not establish that the player did not swing, shoot, or help.
 - Distance, replicated view, or an event sequence alone does not establish visibility, information, access, intent, or a missed trade opportunity. Keep heuristic windows and movement freshness rules explicit.

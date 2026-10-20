@@ -15,6 +15,17 @@ def life_scope(model: dict, round_: dict, pawn: int, moment: int) -> tuple[bool,
     return living, life_start
 
 
+def observation_in_scope(record: dict, round_: dict, minimum: int, moment: int) -> bool:
+    """A boundary snapshot keeps its real clock and explicit round membership."""
+    if record["time_ms"] > moment:
+        return False
+    if "scope_round" not in record:
+        return minimum <= record["time_ms"]
+    if record["scope_round"] != round_["number"]:
+        return False
+    return minimum <= record["time_ms"] or minimum == round_["buy_ms"]
+
+
 def latest_equipment(model: dict, round_: dict, pawn: int, moment: int) -> dict:
     result = {"status": "unknown", "observations": [], "omitted": 0,
               "ammunition_remaining": None, "ability_charges_remaining": None,
@@ -22,7 +33,8 @@ def latest_equipment(model: dict, round_: dict, pawn: int, moment: int) -> dict:
     living, life_start = life_scope(model, round_, pawn, moment)
     if not living:
         return {**result, "reason": "player_dead"}
-    records = [e for e in model.get("equipment", []) if e["player"] == pawn and life_start <= e["time_ms"] <= moment]
+    candidates = model.get("equipment", []) + model.get("checkpoint_state", {}).get("equipment", [])
+    records = [e for e in candidates if e["player"] == pawn and observation_in_scope(e,round_,life_start,moment)]
     if not records:
         return {**result, "reason": "no_equip_observation_in_current_round_and_life"}
     latest = max(e["time_ms"] for e in records)

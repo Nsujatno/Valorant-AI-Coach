@@ -9,9 +9,10 @@ from .spatial import SpatialSettings, query_spatial
 from .utility import overlaps
 from .resources import resource_state, resource_window, resource_evidence
 
-FIGHT_VERSION = 4
+FIGHT_VERSION = 5
 MAX_EVENTS = 16
 MAX_LINKS = 20
+MAX_RESOURCE_EVENTS = 4
 
 
 @dataclass(frozen=True)
@@ -95,6 +96,14 @@ def _resources(data):
                                           "metric", "value", "status")) for r in data["records"]]}
 
 
+def _resource_state(state):
+    """Keep counts/times/evidence; detail lookup carries repeated class/owner data."""
+    weapon = state["weapon"]
+    return {**state, "weapon": {k:v for k,v in weapon.items() if k != "ownership_sources"} if weapon else None,
+            "abilities": [{k:v for k,v in a.items() if k != "ownership_sources" and (k != "item_class" or not a["ability"])}
+                          for a in state["abilities"]]}
+
+
 def _sample(snapshot, core_pawns, anchor):
     players = snapshot["players"] if anchor else [p for p in snapshot["players"] if p["pawn"] in core_pawns]
     observations = []
@@ -161,8 +170,8 @@ def _context(model, export, report, selected, fight, anchor, config):
                       and e["kind"] in ("spikePlanted", "spikeDefused", "spikeExploded")), None)
     living = [p for p in model["players"] if alive(model, round_, p["pawn"], anchor)]
     equipment = latest_equipment(model, round_, selected["pawn"], anchor)
-    resources = _resources(resource_window(model, round_, selected["pawn"], start, end, limit=8))
-    resource_snapshot = resource_state(model, round_, selected, anchor)
+    resources = _resources(resource_window(model, round_, selected["pawn"], start, end, limit=MAX_RESOURCE_EVENTS))
+    resource_snapshot = _resource_state(resource_state(model, round_, selected, anchor))
     response = {"window": {"start_ms": start, "end_ms": end, "round_start_ms": start-round_["live_ms"],
                             "round_end_ms": end-round_["live_ms"], "anchor_ms": anchor,
                             "scope": "start inclusive/end exclusive; global milliseconds; round times since live start"},
@@ -214,6 +223,9 @@ def query_fight(model, export, number, selected, fight_id=None, at_ms=None, evid
         record = report["evidence"].get(evidence_id)
         if record is None:
             record = resource_evidence(model, report["round"], selected["pawn"], evidence_id)
+        if record is None:
+            record = next((r for r in model.get("checkpoint_state",{}).get("equipment",[])
+                           if r["id"] == evidence_id and r["scope_round"] == number and r["player"] == selected["pawn"]),None)
         if record is None:
             data = model.get("utility", {})
             for kind, items in (("smoke", data.get("smokes", [])), ("player_status", data.get("statuses", [])),

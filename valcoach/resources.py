@@ -10,11 +10,11 @@ from bisect import bisect_right
 from collections import defaultdict
 import struct
 
-from .equipment import latest_equipment, life_scope
+from .equipment import latest_equipment, life_scope, observation_in_scope
 from .source import QueryError, provenance, value
 
 
-RESOURCE_VERSION = 1
+RESOURCE_VERSION = 2
 AMMO_GROUP = "/Script/ShooterGame.AmmoComponent"
 CHARGE_GROUPS = {"/Script/ShooterGame.EquipmentChargeComponent",
                  "/Script/ShooterGame.SignatureAbilityResourceComponent"}
@@ -27,11 +27,11 @@ LIMITATIONS = [
     "Reload-state observations do not establish completion or an uninterrupted reload.",
     "Charge resources, temporary charges and signature charges are separate; effective readiness is unknown.",
     "Ultimate active/points and knife counts are observations, not a guarantee that an ability can be used.",
-    "Checkpoints are not merged into the live event stream; unchanged initial values may be missing.",
+    "Checkpoint seeds retain their own times, source identities and explicit round scope; absent defaults stay unknown.",
 ]
 
 
-class _Items:
+class ItemIncarnations:
     """Keep GUID reuse and actor closes from joining different item incarnations."""
 
     def __init__(self, actors):
@@ -112,8 +112,8 @@ class _Ownership:
                 "sources": [r["source"] for r in rows]}
 
 
-def reconstruct_resources(rows, actors, guid_rows, players):
-    items = _Items(actors)
+def reconstruct_resources(rows, actors, guid_rows, players, *, table="fields"):
+    items = ItemIncarnations(actors)
     guids = {g["net_guid"]: g for g in guid_rows}
     pawns = {p["pawn"] for p in players}
     states = {p["state_id"]: p["pawn"] for p in players}
@@ -122,7 +122,7 @@ def reconstruct_resources(rows, actors, guid_rows, players):
         scope = items.at(row["actor_net_guid"], row["time_ms"])
         if row["field_name"] == "Owner" and scope:
             ownership.append({"item": row["actor_net_guid"], "time_ms": row["time_ms"],
-                              "owner": value(row), "opened_ms": scope["opened_ms"], "source": provenance(row)})
+                              "owner": value(row), "opened_ms": scope["opened_ms"], "source": provenance(row,table)})
     owner_history = _Ownership(ownership)
     observations = []
     for row in rows:
@@ -155,8 +155,8 @@ def reconstruct_resources(rows, actors, guid_rows, players):
             observed = number if type(number) in (int, float) and 0 <= number < float("inf") else None
         else:
             observed = _scalar(row, metric in {"ultimate_active", "cooldown_active"}, metric == "blade_storm_knives")
-        source = provenance(row)
-        observations.append({"id": f"fields:{row['source_row']}:resource", "kind": "resource",
+        source = provenance(row,table)
+        observations.append({"id": f"{table}:{row['source_row']}:resource", "kind": "resource",
             "time_ms": moment, "source": source, "player": pawn, "item": item,
             "item_class": scope["item_class"], "ability": _ability(scope["item_class"]),
             "component": component.get("path"), "metric": metric, "value": observed,
@@ -168,8 +168,8 @@ def reconstruct_resources(rows, actors, guid_rows, players):
             "ownership": ownership}
 
 
-def _last(records, metric, moment, minimum):
-    candidates = [r for r in records if r["metric"] == metric and minimum <= r["time_ms"] <= moment
+def _last(records, metric, moment, minimum, round_):
+    candidates = [r for r in records if r["metric"] == metric and observation_in_scope(r,round_,minimum,moment)
                   and (r["closed_ms"] is None or moment < r["closed_ms"])]
     if not candidates:
         return {"status": "unknown", "value": None, "reason": "no_observation_in_scope", "evidence_ids": []}
@@ -195,15 +195,15 @@ def resource_state(model, round_, selected, moment):
     result = {"status": "observations_loaded" if data else "not_loaded", "life_state": "alive" if living else "dead",
               "time_ms": moment, "round_time_ms": moment-round_["live_ms"],
               "weapon": None, "weapon_status": equipment["status"], "abilities": [], "abilities_omitted": 0,
-              "ultimate_points": _last(player_records, "ultimate_points", moment, minimum),
-              "ultimate_active": _last(player_records, "ultimate_active", moment, minimum),
+              "ultimate_points": _last(player_records, "ultimate_points", moment, minimum, round_),
+              "ultimate_active": _last(player_records, "ultimate_active", moment, minimum, round_),
               "effective_readiness": None, "shots_fired": None, "missed_shots": None}
     if not living:
         return result
     if equipment["status"] == "equipped_observation":
         result["weapon_status"] = "no_resource_observations_in_scope"
         equip = equipment["observations"][0]
-        records = [r for r in observations if r["item"] == equip["item"] and minimum <= r["time_ms"] <= moment
+        records = [r for r in observations if r["item"] == equip["item"] and observation_in_scope(r,round_,minimum,moment)
                    and (r["closed_ms"] is None or moment < r["closed_ms"])]
         if records:
             scope = max(r["opened_ms"] for r in records)
@@ -214,16 +214,16 @@ def resource_state(model, round_, selected, moment):
                 result["weapon_status"] = "observed_item_resources"
                 result["weapon"] = {"item": equip["item"], "weapon": equip.get("weapon"),
                     "ownership_sources": owner["sources"],
-                    "magazine": _last(records, "magazine_ammo", moment, minimum),
-                    "reserve": _last(records, "reserve_ammo", moment, minimum),
-                    "state": _last(records, "weapon_state", moment, minimum)}
+                    "magazine": _last(records, "magazine_ammo", moment, minimum, round_),
+                    "reserve": _last(records, "reserve_ammo", moment, minimum, round_),
+                    "state": _last(records, "weapon_state", moment, minimum, round_)}
     by_item = defaultdict(list)
     for record in observations:
         if record["item"] is not None and "/Characters/" in (record["item_class"] or ""):
-            if minimum <= record["time_ms"] <= moment and (record["closed_ms"] is None or moment < record["closed_ms"]):
+            if observation_in_scope(record,round_,minimum,moment) and (record["closed_ms"] is None or moment < record["closed_ms"]):
                 by_item[(record["item"], record["opened_ms"])].append(record)
     activations = [r["time_ms"] for r in player_records if r["metric"] == "ultimate_active" and r["value"] is True
-                   and minimum <= r["time_ms"] <= moment]
+                   and "scope_round" not in r and minimum <= r["time_ms"] <= moment]
     for (item, scope), records in sorted(by_item.items()):
         owner = owners.at(item, scope, moment)
         if owner["owner"] != pawn:
@@ -231,7 +231,7 @@ def resource_state(model, round_, selected, moment):
         item_minimum = max(minimum, max(activations, default=minimum)) if records[0]["ability"] == "Blade Storm" else minimum
         result["abilities"].append({"item": item, "ability": records[0]["ability"], "item_class": records[0]["item_class"],
             "ownership_sources": owner["sources"],
-            "resources": {metric: _last(records, metric, moment, item_minimum) for metric in sorted({r["metric"] for r in records})}})
+            "resources": {metric: _last(records, metric, moment, item_minimum, round_) for metric in sorted({r["metric"] for r in records})}})
     result["abilities_omitted"] = max(0, len(result["abilities"])-16)
     result["abilities"] = result["abilities"][:16]
     return result
@@ -241,7 +241,7 @@ def resource_evidence(model, round_, pawn, evidence_id):
     """Resolve also an item's pre-pickup counts used by the player's snapshot."""
     data = model.get("resources", {})
     record = next((r for r in data.get("observations", []) if r["id"] == evidence_id), None)
-    if not record or not round_["buy_ms"] <= record["time_ms"] < round_["end_ms"]:
+    if not record or not observation_in_scope(record,round_,round_["buy_ms"],round_["end_ms"]-1):
         return None
     if record["player"] == pawn:
         return record
@@ -258,7 +258,8 @@ def resource_evidence(model, round_, pawn, evidence_id):
 def resource_window(model, round_, pawn, start, end, limit=200, offset=0):
     records = [{**r, "round_time_ms": r["time_ms"]-round_["live_ms"]}
                for r in model.get("resources", {}).get("observations", [])
-               if r["player"] == pawn and start <= r["time_ms"] < end]
+               if r["player"] == pawn and start <= r["time_ms"] < end
+               and ("scope_round" not in r or r["scope_round"] == round_["number"])]
     page = records[offset:offset+limit]
     return {"status": "observations_loaded" if "resources" in model else "not_loaded", "records": page,
             "total": len(records), "returned": len(page), "offset": offset,
@@ -281,7 +282,9 @@ def query_resources(model, number, selected, at_ms, before_ms=2000, after_ms=300
     return {"schema_version": 1, "resource_version": RESOURCE_VERSION, "query": "resources",
             "match_id": model["match_id"], "revision": model["revision"], "replay_build": model["replay_build"],
             "round": number, "selected_player": selected["pawn"],
+            "round_context": {key:round_[key] for key in ("buy_ms","live_ms","end_ms")},
             "window": {"start_ms": start, "end_ms": end, "end_exclusive": True},
             "state": resource_state(model, round_, selected, moment),
             "observations": resource_window(model, round_, selected["pawn"], start, end, limit, offset),
+            "checkpoint_coverage": model.get("checkpoint_state", {}).get("coverage", {"status": "not_loaded"}),
             "limitations": LIMITATIONS}

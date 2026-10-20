@@ -192,7 +192,10 @@ class ResourceReferenceTests(unittest.TestCase):
         self.assertEqual(state["weapon"]["reserve"]["value"],90)
         self.assertEqual(state["weapon"]["state"]["value"],"ReadyingState")
         fight = query_fight(self.model,self.export,24,self.selected,at_ms=64639)
-        self.assertEqual(fight["state_at_anchor"]["resources"],state)
+        compact = fight["state_at_anchor"]["resources"]
+        self.assertEqual(compact["weapon"]["magazine"],state["weapon"]["magazine"])
+        self.assertEqual(compact["ultimate_active"],state["ultimate_active"])
+        self.assertEqual([a["resources"] for a in compact["abilities"]],[a["resources"] for a in state["abilities"]])
         evidence = query_fight(self.model,self.export,24,self.selected,evidence_id=knives["evidence_ids"][0])
         self.assertEqual(evidence["record"]["value"],0)
         reserve = query_fight(self.model,self.export,24,self.selected,evidence_id=state["weapon"]["reserve"]["evidence_ids"][0])

@@ -40,7 +40,7 @@ def packed_guid(raw: bytes | None) -> int | None:
 
 def provenance(row: dict, table: str = "fields") -> dict:
     result = {"table": table, "row": row["source_row"]}
-    for key in ("packet_id", "actor_net_guid", "object_net_guid", "field_name"):
+    for key in ("packet_id", "actor_net_guid", "object_net_guid", "field_name", "checkpoint_index", "checkpoint_id"):
         if row.get(key) is not None:
             result[key] = row[key]
     return result
@@ -64,6 +64,22 @@ FIELD_PATTERN = (
 
 # Explicitly exercised exports; new parser branches are not automatically enabled.
 SUPPORTED_BUILDS = {"++Ares-Core+release-13.06", "++Ares-Core+release-13.08"}
+CHECKPOINT_TABLES = ("checkpoint_fields", "checkpoint_actors", "checkpoint_net_guids")
+RESOURCE_CHECKPOINT_PATTERN = (
+    r"^(RoundNumber|Subject|SpawnedCharacter|Owner|CurrentEquippable|NewCurrentEquippable|"
+    r"bUltimateActive|NumUltimatePoints|AuthResourceAmount|AuthSignatureChargeAmount|"
+    r"CurrentTemporaryCharges|MaxCharges|CooldownActive|CooldownSeconds|CurrentState|Ammo)$"
+)
+
+
+def _content_hash(paths: list[Path]) -> str:
+    digest = hashlib.sha256()
+    for path in paths:
+        digest.update(path.name.encode())
+        with path.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
+    return digest.hexdigest()
 
 
 class Export:
@@ -82,13 +98,15 @@ class Export:
         if self.manifest.get("replay_build") not in SUPPORTED_BUILDS:
             raise QueryError("unsupported_build", "This normalizer accepts only release-13.06 and release-13.08 exports; other builds need explicit validation.")
         # Content hashes, rather than filenames/mtime, define the export revision.
-        digest = hashlib.sha256()
-        for path in expected:
-            digest.update(path.name.encode())
-            with path.open("rb") as stream:
-                for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-                    digest.update(chunk)
-        self.fingerprint = digest.hexdigest()
+        self.fingerprint = _content_hash(expected)
+        checkpoint_paths = [self.root/f"{name}.parquet" for name in CHECKPOINT_TABLES]
+        present = [p for p in checkpoint_paths if p.is_file()]
+        if present and len(present) != len(checkpoint_paths):
+            missing = ", ".join(p.name for p in checkpoint_paths if not p.is_file())
+            raise QueryError("incomplete_checkpoint_export", f"Checkpoint tables are incomplete: {missing}")
+        self.has_checkpoints = bool(present)
+        # Supplemental snapshots affect the normalized revision, not match ID.
+        self.checkpoint_fingerprint = _content_hash(present)
 
     def fields(self) -> list[dict]:
         columns = ["time_ms", "packet_id", "actor_net_guid", "object_net_guid", "group_path",
@@ -100,6 +118,16 @@ class Export:
 
     def rows(self, name: str) -> list[dict]:
         return read_rows(self.root / f"{name}.parquet")
+
+    def checkpoints(self) -> dict | None:
+        if not self.has_checkpoints:
+            return None
+        table = pq.read_table(self.root/"checkpoint_fields.parquet")
+        table = table.append_column("source_row", pa.array(range(len(table)), type=pa.int64()))
+        names = table["field_name"].cast(pa.string())
+        fields = table.filter(pc.fill_null(pc.match_substring_regex(names, RESOURCE_CHECKPOINT_PATTERN),False)).to_pylist()
+        return {"fields": fields, "actors": self.rows("checkpoint_actors"), "net_guids": self.rows("checkpoint_net_guids"),
+                "quality":self.manifest.get("quality",{}).get("checkpoints",{})}
 
     def utility_fields(self, pawns: list[int], smoke_actors: list[int]) -> list[dict]:
         """Keep source identities before filtering utility observations."""

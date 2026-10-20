@@ -310,7 +310,7 @@ def query_round(model: dict, export: Export, number: int, selected: dict, settin
     evidence = {e["id"]: e for e in damage + timeline + own_fights}
     evidence.update(utility_evidence)
     resources = resource_window(model, round_, selected["pawn"], round_["buy_ms"], round_["end_ms"])
-    return {"schema_version": 1, "round_version": 3, "match_id": model["match_id"], "revision": model["revision"],
+    return {"schema_version": 1, "round_version": 4, "match_id": model["match_id"], "revision": model["revision"],
             "query": "round", "settings": config, "round": {**round_, "selected_side": roles[-1]["role"] if roles else None},
             "selected_player": selected, "players": player_labels(model, selected), "timeline": timeline, "teammate_fights": team_fights,
             "player_fights": own_fights,

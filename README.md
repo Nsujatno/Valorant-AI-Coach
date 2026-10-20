@@ -101,7 +101,7 @@ Each review event gives its round, global/round-relative milliseconds, and evide
 
 Jett preparation, corroborated dash activation, and unconfirmed dash-equippable records remain separate. Match ability counts retain phase; the compact round index combines phases using `ability:stage` keys. Zero recorded events does not establish that utility was available or unused. Other agents' ability summaries are explicitly unsupported (`null`).
 
-Use the same `--output <new-path>` option to save Markdown or JSON. Existing outputs and raw exports are preserved. Normalized schema v4 retains scoreboard/result and utility provenance and adds item resource/state observations; the code-based revision invalidates older caches automatically. No parser or dependency download is needed for these additions.
+Use the same `--output <new-path>` option to save Markdown or JSON. Existing outputs and raw exports are preserved. Normalized schema v5 retains scoreboard/result, utility and item resources and adds validated checkpoint seeds. Code and checkpoint-content revisions invalidate older caches automatically. No parser or dependency download is needed for these additions.
 
 ## Spatial inspection and candidate map geometry
 
@@ -193,15 +193,29 @@ Inspect resource state at any round time, including moments without recorded dam
 
 `--at-ms` is milliseconds since live start, including negative buy-phase times inside the round. Snapshots use only observations at or before that time. The surrounding observation window is start inclusive/end exclusive; `--before-ms` and `--after-ms` each accept 0–5000. `--limit` is 1–200 (default 40); `--offset` pages chronological observations. Total/returned/omitted counts and `next_offset` remain explicit. The snapshot is independent of its surrounding page and can reference an older observation in the current round/life.
 
-Resource version 1 separates magazine and reserve ammo using the exact AmmoComponent and component identities. Counts belong to item actors: a pickup can retain a previous owner's last observed reserve count, while its observation keeps the original attribution. Actor closes/GUID reuse, ownership changes, death/revive, round boundaries and future data cannot silently supply a snapshot. Source times/ages and evidence IDs are retained; same-time conflicting values stay unknown. Checkpoint snapshots are not merged into the live event stream, so an unchanged initial count may remain missing.
+Resource version 2 separates magazine and reserve ammo using the exact AmmoComponent and component identities. Counts belong to item actors: a pickup can retain a previous owner's last observed reserve count, while its observation keeps the original attribution. Actor closes/GUID reuse, ownership changes, death/revive, round boundaries and future data cannot silently supply a snapshot. Source times/ages and evidence IDs are retained; same-time conflicting values stay unknown.
 
 Jett's exact supported Blueprint knife-count fields are decoded as signed little-endian 32-bit integers with strict payload widths. A new observed ultimate activation cannot inherit an earlier activation's knives. Other agents retain generic source resource channels and raw item classes; this does not add detailed cast mapping for them. Base charge resources, signature charges, temporary charges, maximum charges, cooldown flags/durations, ultimate points and the ultimate-active flag remain separate observations. They are not summed into an invented effective charge count or ability-ready verdict.
 
 Gun state observations resolve the main EquippableStateMachine's state identity, including firing, reload and readying; zoom-machine changes cannot overwrite it. A firing state can cover multiple bullets. A reload-state observation and a later ammo refill are distinct events; neither proves the exact reload-completion time. **Complete shot counts, missed shots and effective weapon/ability readiness remain unknown.** A positive count does not establish that the player could use it while impaired, equipping or otherwise constrained.
 
-Round version 3 adds up to 200 resource observations under `resources`, with explicit omissions; use the focused command to inspect/page a window. Fight version 4 adds `state_at_anchor.resources` and up to eight compact surrounding resource records. Individual record details, including pre-pickup ammo used in a snapshot, are retrievable with `fight --evidence-id` for an item held by that player in the round. This keeps fight output bounded. Normalized schema v4 caches resources; the resource reconstruction code participates in its revision.
+Round version 4 includes up to 200 resource observations under `resources`, with explicit omissions; use the focused command to inspect/page a window. Fight version 5 includes `state_at_anchor.resources` and up to four compact surrounding resource records. Counts, times and evidence references are retained; repeated owner metadata and known ability class paths stay in detailed queries. Individual record details, including pre-pickup ammo used in a snapshot, are retrievable with `fight --evidence-id` for an item held by that player in the round. This keeps fight output bounded. Normalized schema v5 caches resources and checkpoint state; reconstruction code participates in its revision.
 
 For the local R24 regression, the export records zero knives and the ultimate inactive at +14.993 s. At +64.639 s, the selected player has a Spectre equip observation, last-observed magazine/reserve counts of 25/90, and a last-observed `ReadyingState`. These are source-backed checks against the earlier user correction, not independent playback verification of animation timing or readiness.
+
+### Starting state from checkpoints
+
+When `checkpoint_fields.parquet`, `checkpoint_actors.parquet` and `checkpoint_net_guids.parquet` are present, resource snapshots can use explicitly saved state that never produced a live update. Inspect a round's initial resources with:
+
+```powershell
+.\.venv\Scripts\python.exe -m valcoach resources 2 --export output/replay-5c31718d/raw --player 58 --at-ms 0 --json
+```
+
+Each checkpoint uses its own component/GUID metadata. The saved game-state `RoundNumber` determines round membership; checkpoint index is not assumed to be a round number. Subject/pawn identity and the already-observed, still-live actor incarnation/class must match. A checkpoint just before a round's buy marker can seed that explicitly identified round while retaining its actual earlier source timestamp. It cannot seed an earlier query, another round, a revived life or a later item incarnation. Missing defaults stay unknown. Later live updates take precedence by their time, including unknown/cleared values; disagreement at the same timestamp remains a conflict because checkpoint packet IDs are a separate stream.
+
+Checkpoint seeds are saved state, not new casts, shots, equip actions or reload completions. They remain outside the combat/action timeline. `checkpoint_coverage` reports accepted snapshots and rejection reasons. Evidence IDs use `checkpoint_fields:<row>:resource` (or `:equipped`) and detailed source includes checkpoint index/ID. Retrieve them through `fight --evidence-id`. A saved ultimate-active flag is not a new ultimate activation. The first checkpoint in each current reference export lacks an explicit round marker and is excluded; absence is not interpreted as round zero or an inactive ultimate.
+
+All three checkpoint tables are optional together. Without them, live queries still work with explicitly missing starting state. A partial set returns `incomplete_checkpoint_export`; known checkpoint framing/partial-data problems reject seeding while retaining live evidence. Checkpoint content changes invalidate the normalized cache without changing the existing match ID. Supporting actors/equipment counts are bounded in query output as usual.
 
 Retrieve one normalized record with its detailed source/components when needed:
 
