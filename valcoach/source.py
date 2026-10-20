@@ -55,7 +55,9 @@ def read_rows(path: Path, columns: list[str] | None = None) -> list[dict]:
 FIELD_PATTERN = (
     r"^(Subject|AssignedTeamState|SpawnedCharacter|PlayerState|TeamRole|InitialRole|"
     r"ClientBuyPhaseEnd|CurrentDefuser|Owner|CurrentEquippable|NewCurrentEquippable|"
-    r"bUltimateActive|AggregateKills|AggregateDeaths|AggregateAssists)$|^RoundResults\[|^MulticastNotifyDamage|"
+    r"bUltimateActive|NumUltimatePoints|AuthResourceAmount|AuthSignatureChargeAmount|"
+    r"CurrentTemporaryCharges|MaxCharges|CooldownActive|CooldownSeconds|CurrentState|Ammo|"
+    r"AggregateKills|AggregateDeaths|AggregateAssists)$|^Multicast Update Daggers\.DaggersRemaining$|^RoundResults\[|^MulticastNotifyDamage|"
     r"^BombPlantedRPC\.|^BombDefusedRPC\.|^MulticastReceivePlayerResurrectEvent\.|"
     r"^AbilityCastsThisRound\["
 )
@@ -90,7 +92,7 @@ class Export:
 
     def fields(self) -> list[dict]:
         columns = ["time_ms", "packet_id", "actor_net_guid", "object_net_guid", "group_path",
-                   "field_name", "raw_bits", "value_i64", "value_f64", "value_str", "value_bool"]
+                   "field_name", "bit_count", "raw_bits", "value_i64", "value_f64", "value_str", "value_bool"]
         table = pq.read_table(self.root / "fields.parquet", columns=columns)
         table = table.append_column("source_row", pa.array(range(len(table)), type=pa.int64()))
         names = table["field_name"].cast(pa.string())

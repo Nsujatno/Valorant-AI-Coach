@@ -7,8 +7,9 @@ from .query import alive, query_round
 from .source import QueryError
 from .spatial import SpatialSettings, query_spatial
 from .utility import overlaps
+from .resources import resource_state, resource_window, resource_evidence
 
-FIGHT_VERSION = 3
+FIGHT_VERSION = 4
 MAX_EVENTS = 16
 MAX_LINKS = 20
 
@@ -89,6 +90,11 @@ def _utility(data):
             "omitted": None if data["total"] is None else data["total"]-len(records)}
 
 
+def _resources(data):
+    return {**data, "records": [_pick(r, ("id", "time_ms", "round_time_ms", "item", "ability",
+                                          "metric", "value", "status")) for r in data["records"]]}
+
+
 def _sample(snapshot, core_pawns, anchor):
     players = snapshot["players"] if anchor else [p for p in snapshot["players"] if p["pawn"] in core_pawns]
     observations = []
@@ -155,6 +161,8 @@ def _context(model, export, report, selected, fight, anchor, config):
                       and e["kind"] in ("spikePlanted", "spikeDefused", "spikeExploded")), None)
     living = [p for p in model["players"] if alive(model, round_, p["pawn"], anchor)]
     equipment = latest_equipment(model, round_, selected["pawn"], anchor)
+    resources = _resources(resource_window(model, round_, selected["pawn"], start, end, limit=8))
+    resource_snapshot = resource_state(model, round_, selected, anchor)
     response = {"window": {"start_ms": start, "end_ms": end, "round_start_ms": start-round_["live_ms"],
                             "round_end_ms": end-round_["live_ms"], "anchor_ms": anchor,
                             "scope": "start inclusive/end exclusive; global milliseconds; round times since live start"},
@@ -162,7 +170,8 @@ def _context(model, export, report, selected, fight, anchor, config):
                 "state_at_anchor": {"alive": {"selected_team": sum(p["team"] == selected["team"] for p in living),
                                                 "opponents": sum(p["team"] != selected["team"] for p in living)},
                                     "last_recorded_objective": _event(objective) if objective else None,
-                                    "equipment": equipment},
+                                    "equipment": equipment, "resources": resource_snapshot},
+                "resource_observations": resources,
                 "snapshots": samples, "utility": utility,
                 "map_model": _pick(geometry, ("id", "revision", "validation")) if geometry else None,
                 "coverage": {"events_total": len(candidates), "events_returned": len(events),
@@ -170,12 +179,16 @@ def _context(model, export, report, selected, fight, anchor, config):
                     "fight_outside_window": fight["time_ms"] < start or fight["end_ms"] >= end,
                     "fight_links_omitted": omitted_links,
                     "equipment_observations_omitted": equipment["omitted"],
+                    "resource_observations_omitted": resources["omitted"],
+                    "resource_abilities_omitted": resource_snapshot["abilities_omitted"],
                     "truncated": spatial["coverage"]["truncated"] or len(candidates)>len(events)
-                                 or bool(utility["omitted"]) or bool(omitted_links) or bool(equipment["omitted"]) or any(s["smokes_omitted"] for s in samples),
+                                 or bool(utility["omitted"]) or bool(omitted_links) or bool(equipment["omitted"])
+                                 or bool(resources["omitted"]) or bool(resource_snapshot["abilities_omitted"]) or any(s["smokes_omitted"] for s in samples),
                     "actual_visibility": None, "player_knowledge": None,
                     "limitations": ["Damage groups omit missed shots and exchanges without damage.",
                         "No recorded damage contribution does not establish no swing, shots or help.",
                         "Equipment observations do not establish remaining ammo, knives, ability charges or an active ultimate.",
+                        "Separate resource observations expose counts/states; shot totals, reload completion and effective readiness remain unknown.",
                         "Replicated facing, proximity and a modeled route do not prove visibility, access or a missed trade.",
                         "Map estimates may be unverified; smoke opacity/height/radius and flash severity remain unknown.",
                         "Other players are sampled at the anchor only; earlier/later frames focus on this fight's participants."]}}
@@ -199,6 +212,8 @@ def query_fight(model, export, number, selected, fight_id=None, at_ms=None, evid
             "round_context": {"live_ms": report["round"]["live_ms"], "side": report["round"]["selected_side"]}}
     if evidence_id is not None:
         record = report["evidence"].get(evidence_id)
+        if record is None:
+            record = resource_evidence(model, report["round"], selected["pawn"], evidence_id)
         if record is None:
             data = model.get("utility", {})
             for kind, items in (("smoke", data.get("smokes", [])), ("player_status", data.get("statuses", [])),

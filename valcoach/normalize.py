@@ -13,8 +13,9 @@ import tempfile
 
 from .source import Export, QueryError, packed_guid, provenance, value
 from .effects import reconstruct_utility
+from .resources import reconstruct_resources
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 AGENTS = {"Wushu": "Jett", "Rift": "Astra", "BountyHunter": "Fade", "Clay": "Raze",
           "Gumshoe": "Cypher", "Deadeye": "Chamber", "Vampire": "Reyna", "Smonk": "Clove", "Hunter": "Sova",
           "Phoenix": "Phoenix", "Killjoy": "Killjoy",
@@ -145,7 +146,8 @@ def normalize(export: Export) -> dict:
     actors = export.rows("actors")
     events = export.rows("events")
     classes = {a["actor_net_guid"]: a["class_path"] for a in actors if a["event"] == "open"}
-    guids = {g["net_guid"]: g["path"] for g in export.rows("net_guids")}
+    guid_rows = export.rows("net_guids")
+    guids = {g["net_guid"]: g["path"] for g in guid_rows}
     by_name: dict[str, list] = defaultdict(list)
     for row in rows:
         by_name[row["field_name"]].append(row)
@@ -245,13 +247,14 @@ def normalize(export: Export) -> dict:
             "rounds": rounds, "team_roles": team_roles,
             "damage": damage, "timeline": sorted(timeline, key=lambda e: (e["time_ms"], e["id"])),
             "casts": reconstruct_casts(rows), "equipment": equipment, "ownership": ownership,
+            "resources": reconstruct_resources(rows, actors, guid_rows, player_list),
             "source_quality": export.manifest.get("quality", {}),
             "utility": reconstruct_utility(export, actors, player_list, rounds, timeline, guids)}
 
 
 def load_match(export: Export, cache_dir: Path | None = None) -> tuple[dict, bool]:
     code_hash = hashlib.sha256(b"".join(Path(__file__).with_name(name).read_bytes()
-                                      for name in ("normalize.py", "source.py", "effects.py"))).hexdigest()
+                                      for name in ("normalize.py", "source.py", "effects.py", "resources.py"))).hexdigest()
     revision = hashlib.sha256(f"{export.fingerprint}:{code_hash}".encode()).hexdigest()
     cache_dir = cache_dir or Path.cwd() / ".valcoach-cache"
     cache_file = cache_dir / f"{revision}.json"

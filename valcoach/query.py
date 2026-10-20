@@ -9,6 +9,7 @@ import math
 from .normalize import fact
 from .source import Export, QueryError, provenance
 from .utility import fight_utility_refs, utility_window
+from .resources import resource_window
 
 DEFAULTS = {"engagement_gap_ms": 3000, "trade_window_ms": 5000,
             "response_before_ms": 3000, "response_after_ms": 5000,
@@ -308,22 +309,26 @@ def query_round(model: dict, export: Export, number: int, selected: dict, settin
                     utility_evidence[record["id"]] = {k: v for k, v in record.items() if k != "positions"}
     evidence = {e["id"]: e for e in damage + timeline + own_fights}
     evidence.update(utility_evidence)
-    return {"schema_version": 1, "round_version": 2, "match_id": model["match_id"], "revision": model["revision"],
+    resources = resource_window(model, round_, selected["pawn"], round_["buy_ms"], round_["end_ms"])
+    return {"schema_version": 1, "round_version": 3, "match_id": model["match_id"], "revision": model["revision"],
             "query": "round", "settings": config, "round": {**round_, "selected_side": roles[-1]["role"] if roles else None},
             "selected_player": selected, "players": player_labels(model, selected), "timeline": timeline, "teammate_fights": team_fights,
             "player_fights": own_fights,
             "utility": utility,
+            "resources": resources,
             "trades": [t for t in trades if players.get(t["victim"], {}).get("team") == selected["team"]],
             "evidence": evidence,
             "coverage": {"death_events": len(deaths), "deaths_matched_to_damage": sum(bool(e["damage_id"]) for e in deaths),
                          "damage_events": len(damage), "teammate_fights": len(team_fights),
-                         "equipment_observations": len(equipment), "ammunition_support": "not_reconstructed",
+                         "equipment_observations": len(equipment), "ammunition_support": "component_observations",
+                         "resource_observations": resources["total"], "resource_observations_omitted": resources["omitted"],
                          "ability_support": "Jett cast records and corroborated Tailwind only" if selected["agent"] == "Jett" else "unsupported_agent",
-                         "parser_quality": model["source_quality"], "truncated": False,
+                         "parser_quality": model["source_quality"], "truncated": bool(resources["omitted"]),
                          "limitations": ["Export observations do not establish complete replay semantics.",
                                          "Damage-only fights omit missed shots and fights without damage.",
                                          "No recorded damage contribution does not mean no participation.",
                                          "Distances do not establish visibility, knowledge, access, or trade opportunity.",
-                                         "Other agents' abilities, utility effect scoring, ammunition and reloads are not reconstructed.",
+                                         "Resources are source observations; full shot logs, reload completion and effective ability readiness are unknown.",
+                                         "Other agents' detailed casts and utility effect scoring are not reconstructed.",
                                          "Player display names and all-agent utility mapping are not required.",
                                          "Trade and response windows are configurable heuristics, not tactical verdicts."]}}

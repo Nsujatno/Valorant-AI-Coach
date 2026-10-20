@@ -2,6 +2,7 @@
 
 from .common import amount, cell, coverage_section, death_description, fight_kill_description, player, seconds, table
 from .utility import utility_section
+from .resources import observation_section
 
 
 def _header(result: dict) -> list[str]:
@@ -97,4 +98,7 @@ def _trade_section(result: dict) -> list[str]:
 
 def render_round(result: dict) -> str:
     sections = (_header, _timeline_section, _fight_section, _trade_section, utility_section, coverage_section)
-    return "\n\n".join("\n".join(section(result)) for section in sections) + "\n"
+    lines = ["\n".join(section(result)) for section in sections]
+    if result.get("resources"):
+        lines.insert(-1, "\n".join(observation_section(result["resources"])))
+    return "\n\n".join(lines) + "\n"

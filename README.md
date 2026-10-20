@@ -101,7 +101,7 @@ Each review event gives its round, global/round-relative milliseconds, and evide
 
 Jett preparation, corroborated dash activation, and unconfirmed dash-equippable records remain separate. Match ability counts retain phase; the compact round index combines phases using `ability:stage` keys. Zero recorded events does not establish that utility was available or unused. Other agents' ability summaries are explicitly unsupported (`null`).
 
-Use the same `--output <new-path>` option to save Markdown or JSON. Existing outputs and raw exports are preserved. Normalized schema v3 retains v2 scoreboard/result provenance and adds the utility observations described below; the code-based revision invalidates older caches automatically. No parser or dependency download is needed for these additions.
+Use the same `--output <new-path>` option to save Markdown or JSON. Existing outputs and raw exports are preserved. Normalized schema v4 retains scoreboard/result and utility provenance and adds item resource/state observations; the code-based revision invalidates older caches automatically. No parser or dependency download is needed for these additions.
 
 ## Spatial inspection and candidate map geometry
 
@@ -180,7 +180,28 @@ Context defaults to 2 seconds before / 3 seconds after the group or requested an
 
 The compact result omits raw map polygons, route vertices, repeated metadata and full source payloads. Utility detail caps at 20 records, per-snapshot smoke centers at eight, and fight/response ID lists at 20; counts and omissions remain explicit. Other underlying spatial budgets still apply. `--allow-candidate-map` and optional `--smoke-radius-cm` retain their experimental meanings. `--json` uses compact serialization for this command. These are evidence queries, not deterministic coaching judgments or mistake scores.
 
-Fight version 3 adds `state_at_anchor.equipment`, the latest selected-player equip observations within the current round/life, and nearby equip changes in the event list. Round version 2 exposes equip observations in its timeline/evidence. Same-time conflicting items remain ambiguous, cleared references do not fall back to an older weapon, and revives require a new-life observation. Equipment is event-driven, so its age is reported without applying movement's 250 ms rule. Up to eight same-time observations are returned, with explicit omissions. **Ammo, remaining knives, ability charges and ultimate readiness are not reconstructed.** An earlier Blade Storm activation is not proof that knives are still available. A weapon identity or temporary ability equip also does not establish resources or tactical intent. Exact equip records can be retrieved with `--evidence-id` like other round evidence.
+Fight context includes `state_at_anchor.equipment`, the latest selected-player equip observations within the current round/life, and nearby equip changes in the event list. Round timelines expose equip observations too. Same-time conflicting items remain ambiguous, cleared references do not fall back to an older weapon, and revives require a new-life observation. Equipment is event-driven, so its age is reported without applying movement's 250 ms rule. Up to eight same-time observations are returned, with explicit omissions. Equip identity alone does not establish resources or tactical intent; its legacy count placeholders stay `null`. Separate resource observations now provide supported counts/states as described below. Exact equip records can be retrieved with `--evidence-id` like other round evidence.
+
+### Ammo, knives and action state
+
+Inspect resource state at any round time, including moments without recorded damage:
+
+```powershell
+.\.venv\Scripts\python.exe -m valcoach resources 24 --export output/replay-5c31718d/raw --player 58 --at-ms 64639 --json
+.\.venv\Scripts\python.exe -m valcoach resources 1 --export output/replay-5c31718d/raw --player 58 --at-ms 29676 --before-ms 1000 --after-ms 2000
+```
+
+`--at-ms` is milliseconds since live start, including negative buy-phase times inside the round. Snapshots use only observations at or before that time. The surrounding observation window is start inclusive/end exclusive; `--before-ms` and `--after-ms` each accept 0–5000. `--limit` is 1–200 (default 40); `--offset` pages chronological observations. Total/returned/omitted counts and `next_offset` remain explicit. The snapshot is independent of its surrounding page and can reference an older observation in the current round/life.
+
+Resource version 1 separates magazine and reserve ammo using the exact AmmoComponent and component identities. Counts belong to item actors: a pickup can retain a previous owner's last observed reserve count, while its observation keeps the original attribution. Actor closes/GUID reuse, ownership changes, death/revive, round boundaries and future data cannot silently supply a snapshot. Source times/ages and evidence IDs are retained; same-time conflicting values stay unknown. Checkpoint snapshots are not merged into the live event stream, so an unchanged initial count may remain missing.
+
+Jett's exact supported Blueprint knife-count fields are decoded as signed little-endian 32-bit integers with strict payload widths. A new observed ultimate activation cannot inherit an earlier activation's knives. Other agents retain generic source resource channels and raw item classes; this does not add detailed cast mapping for them. Base charge resources, signature charges, temporary charges, maximum charges, cooldown flags/durations, ultimate points and the ultimate-active flag remain separate observations. They are not summed into an invented effective charge count or ability-ready verdict.
+
+Gun state observations resolve the main EquippableStateMachine's state identity, including firing, reload and readying; zoom-machine changes cannot overwrite it. A firing state can cover multiple bullets. A reload-state observation and a later ammo refill are distinct events; neither proves the exact reload-completion time. **Complete shot counts, missed shots and effective weapon/ability readiness remain unknown.** A positive count does not establish that the player could use it while impaired, equipping or otherwise constrained.
+
+Round version 3 adds up to 200 resource observations under `resources`, with explicit omissions; use the focused command to inspect/page a window. Fight version 4 adds `state_at_anchor.resources` and up to eight compact surrounding resource records. Individual record details, including pre-pickup ammo used in a snapshot, are retrievable with `fight --evidence-id` for an item held by that player in the round. This keeps fight output bounded. Normalized schema v4 caches resources; the resource reconstruction code participates in its revision.
+
+For the local R24 regression, the export records zero knives and the ultimate inactive at +14.993 s. At +64.639 s, the selected player has a Spectre equip observation, last-observed magazine/reserve counts of 25/90, and a last-observed `ReadyingState`. These are source-backed checks against the earlier user correction, not independent playback verification of animation timing or readiness.
 
 Retrieve one normalized record with its detailed source/components when needed:
 

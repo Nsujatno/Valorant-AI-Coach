@@ -1,10 +1,8 @@
 """Observed equipment identity; never infer remaining ammo or ability charges."""
 
 
-def latest_equipment(model: dict, round_: dict, pawn: int, moment: int) -> dict:
-    result = {"status": "unknown", "observations": [], "omitted": 0,
-              "ammunition_remaining": None, "ability_charges_remaining": None,
-              "method": "last recorded equip in current round/life; not resource availability"}
+def life_scope(model: dict, round_: dict, pawn: int, moment: int) -> tuple[bool, int]:
+    """Alive flag and earliest admissible observation in this round/life."""
     life_start = round_["buy_ms"]
     living = True
     for event in model["timeline"]:
@@ -14,6 +12,14 @@ def latest_equipment(model: dict, round_: dict, pawn: int, moment: int) -> dict:
             living, life_start = False, event["time_ms"]+1
         elif event["kind"] == "resurrection" and event["player"] == pawn:
             living, life_start = True, event["time_ms"]
+    return living, life_start
+
+
+def latest_equipment(model: dict, round_: dict, pawn: int, moment: int) -> dict:
+    result = {"status": "unknown", "observations": [], "omitted": 0,
+              "ammunition_remaining": None, "ability_charges_remaining": None,
+              "method": "last recorded equip in current round/life; separate resources query for counts"}
+    living, life_start = life_scope(model, round_, pawn, moment)
     if not living:
         return {**result, "reason": "player_dead"}
     records = [e for e in model.get("equipment", []) if e["player"] == pawn and life_start <= e["time_ms"] <= moment]

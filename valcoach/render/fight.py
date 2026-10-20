@@ -3,6 +3,7 @@
 import json
 
 from .common import amount, player, seconds, table
+from .resources import state_lines, observation_section
 
 
 def render_fight(result):
@@ -23,7 +24,7 @@ def render_fight(result):
     equipment = result["state_at_anchor"]["equipment"]
     items = "; ".join(e.get("weapon") or e.get("item_class") or "no item / unknown" for e in equipment["observations"])
     lines += [f"Equipment observation at anchor: {equipment['status']}; {items or 'unknown'}. "
-              "Remaining ammo and ability charges are unknown.", ""]
+              "Resource observations follow separately.", "", *state_lines(result["state_at_anchor"]["resources"]), ""]
     rows = []
     for event in result["events"]:
         subject = event.get("attacker", event.get("killer", event.get("player")))
@@ -44,7 +45,8 @@ def render_fight(result):
     if angle_rows:
         lines += ["", "## Entrance-facing estimates", "", "Left/right is from the observer; estimates do not establish visibility or intent.", "",
                   *table(["Time", "Entrance", "Facing side", "Estimate", "Players beyond entrance"], angle_rows)]
-    lines += ["", "## Utility observations", "", "```json", json.dumps(result["utility"], indent=2), "```", "",
+    lines += ["", *observation_section(result["resource_observations"]), "",
+              "## Utility observations", "", "```json", json.dumps(result["utility"], indent=2), "```", "",
               "## Coverage", "", f"Truncated: {result['coverage']['truncated']}; "
               f"events {result['coverage']['events_returned']}/{result['coverage']['events_total']}.", "",
               *("- "+item for item in result["coverage"]["limitations"])]
