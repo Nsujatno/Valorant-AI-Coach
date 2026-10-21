@@ -1,6 +1,6 @@
 # Architecture and code map
 
-Use this reference when navigating modules or changing their organization. [AGENTS.md](../AGENTS.md) contains project-wide instructions; [README.md](../README.md) contains executable commands.
+Use this reference when navigating modules or changing their organization. [AGENTS.md](../AGENTS.md) contains project-wide instructions; [README.md](../README.md) introduces the project and the [CLI reference](cli.md) contains executable commands.
 
 ## Code map
 

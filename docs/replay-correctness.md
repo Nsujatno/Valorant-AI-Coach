@@ -1,6 +1,6 @@
 # Replay correctness
 
-Read and follow these rules before changing replay decoding, normalization, state reconstruction, queries or map geometry. [AGENTS.md](../AGENTS.md) contains project-wide instructions; [README.md](../README.md) documents commands and current limitations.
+Read and follow these rules before changing replay decoding, normalization, state reconstruction, queries or map geometry. [AGENTS.md](../AGENTS.md) contains project-wide instructions; the [CLI reference](cli.md) documents commands and detailed limitations.
 
 ## Reconstruction and inference boundaries
 
@@ -27,4 +27,4 @@ Read and follow these rules before changing replay decoding, normalization, stat
 - Integration tests skip without their private reference export. Report skipped checks honestly. `VALCOACH_TEST_EXPORT` can relocate the original reference export; `VALCOACH_TEST_EXPORT_1308` can relocate the second 13.08 export.
 - Automated agreement with recorded expectations does not complete independent replay verification. Do not mark a manual check verified without the user's confirmation or an actual independent playback check.
 - For parser upgrades, preserve old exports and compare a fresh export of the same replay with `python -m valcoach.compare_exports`. Inspect new fields/typed coverage and changed normalized facts before adding regressions or accepting compatibility. Report unavailable semantic comparisons honestly; never regenerate expectations solely to approve an upgrade. Do not infer old exporter provenance from the currently installed binary.
-- Update README commands when behavior changes. Update plans when accepted scope/design changes. Documentation-only edits need link/content checks, not an automatic replay test run.
+- Update the CLI reference when command behavior changes and README when the project overview changes. Update plans when accepted scope/design changes. Documentation-only edits need link/content checks, not an automatic replay test run.

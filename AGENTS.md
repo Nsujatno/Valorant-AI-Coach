@@ -5,7 +5,7 @@ These instructions apply throughout the project unless a nested `AGENTS.md` over
 ## Start here
 
 - Read local [PROGRESS.md](PROGRESS.md), when present, for state, pending verification and handoff notes. Check actual files before relying on status claims.
-- Read [README.md](README.md) for commands and limitations. Reuse the existing Windows environment at `.venv/Scripts/python.exe`; the shell entry point is not assumed installed. Fetch dependencies or replace the parser only when authorized.
+- Read [README.md](README.md) for project orientation and [docs/cli.md](docs/cli.md) for commands and detailed limitations. Reuse the existing Windows environment at `.venv/Scripts/python.exe`; the shell entry point is not assumed installed. Fetch dependencies or replace the parser only when authorized.
 - Local `mvp-plan.md` and `plan.md` contain agreed scope/design when present. These and `PROGRESS.md` are private, Git-ignored and optional in fresh checkouts.
 - For module navigation or structural changes, read [docs/architecture.md](docs/architecture.md). Its file map is descriptive; create, split or consolidate modules as useful, and update the map after structural changes.
 - Before changing replay decoding, normalization, reconstruction, queries or map geometry, read and follow [docs/replay-correctness.md](docs/replay-correctness.md).
@@ -37,9 +37,9 @@ Distance, facing, event order, missing damage or firing alone cannot establish v
 
 - Preserve structured JSON, stable errors, source evidence and revision semantics. Update schema/cache/heuristic versions when meaning changes; inspect cache identity when changing reconstruction.
 - Add targeted regressions for changed behavior, especially state transitions and missing data. Run relevant tests; use the full suite for changes crossing normalization/query boundaries.
-- Report private-export test skips honestly; README documents export relocation variables. Passing recorded expectations does not independently verify playback. Never regenerate expectations just to pass a test.
+- Report private-export test skips honestly; [CLI test documentation](docs/cli.md#tests) lists export relocation variables. Passing recorded expectations does not independently verify playback. Never regenerate expectations just to pass a test.
 - For parser upgrades, follow the comparison procedure in [replay correctness](docs/replay-correctness.md#changes-and-verification).
-- Update README for command changes and plans for accepted scope/design changes. Documentation-only edits need content/link checks.
+- Update the CLI reference for command changes, README for project-level changes and plans for accepted scope/design changes. Documentation-only edits need content/link checks.
 
 ## Files and distribution
 
