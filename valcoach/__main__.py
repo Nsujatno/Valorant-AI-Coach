@@ -9,7 +9,7 @@ import sys
 
 from .normalize import load_match
 from .overview import EVENT_KINDS, query_overview
-from .query import DEFAULTS, query_round, select_player
+from .query import DEFAULTS, query_players, query_round, select_player
 from .render import render_overview, render_round, render_spatial
 from .render.spatial import render_spatial_svg
 from .source import Export, QueryError
@@ -112,9 +112,7 @@ def _validate_paths(arguments) -> None:
 
 def _query(arguments, export: Export, model: dict) -> dict:
     if arguments.command == "players":
-        return {"schema_version": 1, "match_id": model["match_id"], "revision": model["revision"],
-                "query": "players", "players": model["players"], "replay_build": model["replay_build"],
-                "rounds": [r["number"] for r in model["rounds"]]}
+        return query_players(model)
     selected = select_player(model, arguments.player)
     if arguments.command == "gunfire":
         return query_gunfire(model,arguments.number,selected,arguments.start_ms,arguments.end_ms,
@@ -142,7 +140,7 @@ def _render(response: dict, as_json: bool) -> str:
             return json.dumps(response, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
         return json.dumps(response, indent=2, ensure_ascii=False, allow_nan=False)
     if response["query"] == "players":
-        return "\n".join(f"state {p['state_id']} / pawn {p['pawn']} | team {p['team']} | {p['agent']} | {p['id']}"
+        return "\n".join(f"state {p['state_id']} / pawn {p['pawn']} | team {p['team']} | started {p['starting_side'] or 'unknown'} | {p['agent']} | {p['id']}"
                          for p in response["players"])
     renderer = {"overview":render_overview,"round":render_round,"spatial":render_spatial,
                 "fight":render_fight,"fight_index":render_fight,"evidence":render_fight,"resources":render_resources,"gunfire":render_gunfire}[response["query"]]

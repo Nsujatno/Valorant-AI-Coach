@@ -1,4 +1,4 @@
-"""Round queries and explicit, configurable fight/trade heuristics."""
+"""Player discovery, round queries and explicit fight/trade heuristics."""
 
 from __future__ import annotations
 
@@ -31,6 +31,56 @@ def select_player(model: dict, selector: str) -> dict:
         raise QueryError("ambiguous_player" if matches else "unknown_player",
                          "Select a unique subject/state/pawn ID from the players command; agent names can be ambiguous.")
     return matches[0]
+
+
+def query_players(model: dict) -> dict:
+    """Discover identities and derive starting sides from round-one observations.
+
+    References index the existing normalized team_roles in this match revision;
+    they are not invented raw-export row IDs. Never infer the opposite team's
+    role or use a later half when starting observations are unavailable.
+    """
+    first_rounds = [round_ for round_ in model.get("rounds", []) if round_["number"] == 1]
+    anchor = first_rounds[0].get("live_ms") if len(first_rounds) == 1 else None
+    if not isinstance(anchor, (int, float)) or isinstance(anchor, bool) or not math.isfinite(anchor) or anchor < 0:
+        anchor = None
+    sides = {}
+    for team in dict.fromkeys(player.get("team") for player in model["players"]):
+        side = None
+        latest_time = None
+        indices = []
+        reason = "round_one_unavailable" if anchor is None else "not_observed"
+        if team is None:
+            reason = "unknown_team"
+        elif anchor is not None:
+            eligible = [(index, role) for index, role in enumerate(model.get("team_roles", []))
+                        if role["team"] == team and role["time_ms"] <= anchor]
+            if eligible:
+                latest_time = max(role["time_ms"] for _, role in eligible)
+                latest = [(index, role) for index, role in eligible if role["time_ms"] == latest_time]
+                indices = [index for index, _ in latest]
+                values = {role["role"] for _, role in latest}
+                if len(values) == 1 and next(iter(values)) in {"attacker", "defender"}:
+                    side, reason = next(iter(values)), "observed"
+                else:
+                    reason = "conflicting_observations" if len(values) > 1 else "unmapped_role"
+        sides[team] = {"side": side, "evidence": {
+            "round_number": 1, "at_ms": anchor, "observation_time_ms": latest_time,
+            "normalized_team_role_indices": indices, "reason": reason}}
+    # Two distinct teams cannot both start on the same side. Preserve the
+    # observations, but do not present contradictory labels as a valid choice.
+    for side in ("attacker", "defender"):
+        teams = [team for team, result in sides.items() if result["side"] == side]
+        if len(teams) > 1:
+            for team in teams:
+                sides[team]["side"] = None
+                sides[team]["evidence"]["reason"] = "conflicting_teams"
+    players = [{**player, "starting_side": sides[player.get("team")]["side"],
+                "starting_side_evidence": sides[player.get("team")]["evidence"]}
+               for player in model["players"]]
+    return {"schema_version": 2, "match_id": model["match_id"], "revision": model["revision"],
+            "query": "players", "players": players, "replay_build": model["replay_build"],
+            "rounds": [round_["number"] for round_ in model["rounds"]]}
 
 
 def player_labels(model: dict, selected: dict) -> dict[str, str]:

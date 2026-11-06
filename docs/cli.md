@@ -20,6 +20,23 @@ Inspect your Jett in round one:
 
 Player selectors are subject UUID, player-state ID, or pawn ID. Agent names only work when unique. `Jett` is ambiguous in this game. The player's chosen alias is not assumed to be present in the export.
 
+The `players` response uses schema version 2. Each existing identity now includes
+`starting_side` (`attacker`, `defender` or `null`) and `starting_side_evidence`.
+Starting side is the team's latest observed role at or before **round one's live
+start**, separate from its stable team ID and later halftime/overtime sides.
+No opposite-team role is inferred. Missing/ambiguous round one, missing or
+unmapped roles, conflicting latest observations and two teams claiming the same
+starting side remain unknown. Existing player IDs and unmapped agent identifiers
+are retained; readable output adds a `started` label.
+
+The evidence gives `round_number`, canonical global `at_ms`,
+`observation_time_ms`, `reason` and `normalized_team_role_indices`. Those indices
+refer to `team_roles` in the same normalized match/revision; they are **not raw
+export row IDs**. This query-only addition does not change normalized schema v6,
+cache identity, parser compatibility or existing round-side interpretation.
+The desktop uses these labels to ask for starting side before showing that
+side's agents; unknown sides have an explicit fallback rather than guessed teams.
+
 Get machine-readable evidence or save a readable report:
 
 ```powershell

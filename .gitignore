@@ -7,6 +7,9 @@ dist/
 data/
 output/
 .valcoach-cache/
+node_modules/
+/desktop/out/
+*.tsbuildinfo
 
 # Local planning and progress
 /PROGRESS.md

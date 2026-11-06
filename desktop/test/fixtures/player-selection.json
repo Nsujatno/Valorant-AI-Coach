@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "query": "players",
+  "match_id": "synthetic-match",
+  "revision": "synthetic-revision",
+  "replay_build": "synthetic-build",
+  "exportPath": "C:\\ui-test\\example-export",
+  "folderName": "Example match",
+  "rounds": [1, 2],
+  "players": [
+    {"id": "attack-jett", "state_id": 11, "pawn": 1, "team": 100, "agent": "Jett", "starting_side": "attacker"},
+    {"id": "attack-sova", "state_id": 12, "pawn": 2, "team": 100, "agent": "Sova", "starting_side": "attacker"},
+    {"id": "defense-jett", "state_id": 21, "pawn": 3, "team": 200, "agent": "Jett", "starting_side": "defender"},
+    {"id": "defense-fade", "state_id": 22, "pawn": 4, "team": 200, "agent": "Fade", "starting_side": "defender"}
+  ]
+}

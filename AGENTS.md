@@ -15,6 +15,10 @@ These instructions apply throughout the project unless a nested `AGENTS.md` over
 
 ValCoach helps an individual improve ranked play through evidence-backed replay coaching. The initial persona is a Diamond Jett player. The conversation is the product experience; the CLI is the agent's investigative interface.
 
+The desktop player workflow is AI-powered coaching, with replay/player selection and conversational follow-ups. Do not add a standalone logs, timeline or raw-JSON browser for players; focused queries remain internal coaching and developer tools. Coaching may explain its evidence with round/time references.
+
+Accepted model access options are optional Sign in with ChatGPT plan usage and explicit bring-your-own OpenAI API key (BYOK). BYOK is session-only in main-process memory: never persist it or include it in logs, analytics, prompts or replay artifacts; clear it on disconnect/provider change/exit and require re-entry after restart. Show the selected billing mode and never silently switch from ChatGPT usage to API billing. These are product decisions; authentication/inference implementation needs its own task.
+
 The pipeline is `.vrf -> vrfkit -> raw Parquet -> normalized facts -> focused JSON queries -> host agent/skill`. Separate decoding, normalization, queries, rendering and coaching. Deterministic code computes facts; the agent interprets them. All interfaces share one analysis core.
 
 Stay within the agreed slice. Adding MCP, a web UI, cloud services, model APIs, broad agent coverage or frameworks requires a task calling for it.

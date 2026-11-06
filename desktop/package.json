@@ -1,0 +1,31 @@
+{
+  "name": "valcoach-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local ValCoach desktop development prototype",
+  "main": "./out/main/index.js",
+  "engines": { "node": ">=22.12.0" },
+  "scripts": {
+    "doctor": "node scripts/doctor.mjs",
+    "dev": "electron-vite dev --watch",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit",
+    "build": "npm run typecheck && electron-vite build",
+    "test": "node --test test/*.test.mjs",
+    "postinstall": "install-electron"
+  },
+  "dependencies": {
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "electron": "44.7.2",
+    "electron-vite": "6.0.0",
+    "typescript": "5.9.3",
+    "vite": "8.3.4"
+  }
+}

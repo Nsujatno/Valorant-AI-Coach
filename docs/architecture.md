@@ -10,7 +10,7 @@ This map describes the current layout; it is not a required file structure or a 
 | --- | --- |
 | `valcoach/source.py` | Export validation, Parquet reads, source row identities |
 | `valcoach/normalize.py` | Identity/state reconstruction and normalized cache |
-| `valcoach/query.py` | Round queries, fights, trades, movement and Jett evidence |
+| `valcoach/query.py` | Player discovery with round-one starting-side derivation, round queries, fights, trades, movement and Jett evidence |
 | `valcoach/overview.py` | Full-match aggregation, round index and paginated review references |
 | `valcoach/fight.py` | Paginated fight discovery, compact context and individual normalized evidence retrieval over shared cores |
 | `valcoach/spatial.py` | Bounded positions, replicated facing, bearings and map estimate orchestration |
@@ -26,8 +26,15 @@ This map describes the current layout; it is not a required file structure or a 
 | `scripts/build_minimap_model.py` | Offline candidate footprint generation from local public artwork/metadata; Pillow is a development-tool dependency only |
 | `valcoach/render/` | Round/overview/spatial document sections, diagnostic SVG and shared formatting; no replay analysis |
 | `valcoach/__main__.py` | CLI arguments, output and errors |
+| `desktop/src/main/` | Electron lifecycle, native export selection and bounded Python CLI process bridge |
+| `desktop/src/preload/`, `desktop/src/shared/` | Narrow renderer IPC API for match preparation, cancellation and DevTools, with typed setup contracts |
+| `desktop/src/renderer/` | Minimal dark coaching entry: export → starting side → agent selection, editable draft and compact pending connection menu; no standalone query browser or replay analysis |
+| `desktop/src/renderer/src/player-selection.mjs` | Side-filtered agent choices, duplicate/unmapped identity labels and atomic match/side/player selection resets |
+| `desktop/src/renderer/src/IslandScene.tsx`, `SovaDrone.tsx`, `drone-flight.mjs`, `assets/` | Static local island artwork and muted original SVG drone with automatic looping flight, gentler reduced-motion profile, visibility handling and unmount cleanup; no motion controls, 3D map or replay evidence |
+| `desktop/scripts/doctor.mjs`, `desktop/test/` | Read-only environment checks, process-boundary tests and optional private-export CLI integration checks |
 | `valcoach/verification.py` | Reference-game review pack using the same query core |
 | `tests/test_core.py` | Synthetic cases for reconstruction and inference boundaries |
+| `tests/test_players.py` | Round-one starting sides, mirror agents, normalized observation references, future/halftime exclusion and missing/conflicting roles |
 | `tests/test_reference.py` | Private-export integration checks |
 | `tests/test_build_1308.py` | Second private export: 13.08 compatibility and post-round self-death checks |
 | `tests/test_overview.py` | Match aggregation, pagination, missing values and evidence retrieval |

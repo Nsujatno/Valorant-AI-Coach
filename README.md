@@ -16,7 +16,13 @@ The engine computes replay facts; the agent interprets them. Replay processing r
 
 ValCoach is a development prototype. It currently works with an existing vrfkit export and a Python environment; automatic replay import and a packaged installer are still planned.
 
-In this Windows workspace, discover the players in an export with:
+The planned release is an [open-source Windows desktop app](docs/desktop.md) centered on AI coaching. Users will select a replay and player, connect an eligible ChatGPT plan or supply their own OpenAI API key, then ask for a review and follow-ups. BYOK will stay in memory for the session, with no saved key or silent switch to API billing. The app does not offer a standalone log/query browser; evidence queries support the coach internally.
+
+The initial [desktop prototype](desktop/README.md) lets you choose an existing export, select whether you started on attack or defense, then pick your agent from that team and draft a coaching request. This distinguishes mirror agents on opposing teams. AI connections and reviews are visibly pending. Its development loop uses a one-time user-run dependency install and `npm run dev`; automatic replay import, the project license and release packaging also remain pending.
+
+The desktop interface is a minimal dark workspace with a still Ascent-inspired island, soft dusk lighting and a small muted Sova-inspired drone flying around it. Flight runs automatically with no controls and suspends when hidden/offscreen. Reduced-motion uses slower, level flight with fixed scale and static rotors. Compact match/player selection, two review shortcuts and a coaching draft keep the session focused. AI connections and coaching remain pending.
+
+For development or an external coaching agent, discover the players in an export with:
 
 ```powershell
 $exportPath = 'C:\path\to\raw-export'
